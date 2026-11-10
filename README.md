@@ -10,10 +10,10 @@ k3s cluster, deployed by Argo CD from this repository. LAN only.
 | Jellyfin | 12.4, image `docker.io/jellyfin/jellyfin:12.4.20261026-211555@sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771` |
 | URL | `http://192.168.0.5:8096` (MetalLB, LAN `192.168.0.0/24` only, plain HTTP) |
 | Node | `mr2` (AMD Ryzen 7 7840HS, Radeon 780M iGPU, VCN 4.0) |
-| Media | Synology NAS over NFSv4.1, read-only (host/export: pending, Phase 2) |
+| Media | Synology DS220+ `riemerkNASS.local:/volumeUSB1/usbshare/media` (USB SSD, 458 GB) over NFSv4.1, read-only |
 | State | node-local SSD on mr2: `/var/lib/mr-jellyfin/{config,cache}` |
 | Backups | daily 03:15 Europe/Zurich to `mr0.local:/srv/nfs4/homes/mr/jellyfin/backup`, 14 kept |
-| Status | Phase 1 (repository). Nothing deployed yet: see [docs/phase-log.md](docs/phase-log.md) |
+| Status | Phase 2 (storage) done; Jellyfin not deployed yet: see [docs/phase-log.md](docs/phase-log.md) |
 
 ## Repository layout
 
@@ -76,7 +76,7 @@ scripts/
 |---|---|---|---|---|---|
 | `mr-do-jellyfin-pvc-config` | `/config` | local PV, Retain | mr2 `/var/lib/mr-jellyfin/config` | 20Gi | RWO |
 | `mr-do-jellyfin-pvc-cache` | `/cache` | local PV, Retain | mr2 `/var/lib/mr-jellyfin/cache` | 50Gi | RWO |
-| `mr-do-jellyfin-pvc-media` | `/media` | NFS PV, Retain | Synology (pending Phase 2) | 500Gi | ROX, read-only |
+| `mr-do-jellyfin-pvc-media` | `/media` | NFS PV, Retain | `riemerkNASS.local:/volumeUSB1/usbshare/media` | 458Gi | ROX, read-only |
 | `mr-do-jellyfin-pvc-backup` | `/backup` (backup job only) | NFS PV, Retain | `mr0.local:/srv/nfs4/homes/mr/jellyfin/backup` | 50Gi | RWX |
 | `transcode` | `/transcode` | emptyDir | mr2 node disk | limit 30Gi | wiped on restart |
 | `tmp` | `/tmp` | emptyDir | mr2 node disk | limit 2Gi | wiped on restart |
@@ -88,8 +88,8 @@ Contents of `/config` (Jellyfin data dir, official image layout):
 `log/` server logs.
 
 Library folders expected below the NFS export (checked by the preflight init container):
-`movies/`, `series/`, `documentaries/`, `home-videos/` -> in Jellyfin `/media/movies`, `/media/series`,
-`/media/documentaries`, `/media/home-videos`.
+`movies/`, `series/`, `documentaries/`, `home-videos/` (+ `music/` in production) -> in Jellyfin `/media/movies`,
+`/media/series`, `/media/documentaries`, `/media/home-videos`, `/media/music`.
 
 Every PV/PVC has `helm.sh/resource-policy: keep` and `argocd.argoproj.io/sync-options: Prune=false,Delete=false`;
 every PV has `persistentVolumeReclaimPolicy: Retain`.
@@ -165,15 +165,15 @@ Defaults in `kubernetes/chart/values.yaml`; mr home lab overrides in `values-pro
 | `networkPolicy.monitoringNamespace` | `monitoring` | - | Prometheus namespace |
 | `persistence.config.localPath` / `node` / `size` | `/var/lib/mr-jellyfin/config` / `""` / `20Gi` | node `mr2` | config + database volume |
 | `persistence.cache.localPath` / `node` / `size` | `/var/lib/mr-jellyfin/cache` / `""` / `50Gi` | node `mr2` | cache volume |
-| `persistence.media.server` / `path` | `""` / `""` | pending Phase 2 | NAS NFS host name and export (required) |
-| `persistence.media.size` / `readOnly` | `500Gi` / `true` | - | media PV |
+| `persistence.media.server` / `path` | `""` / `""` | `riemerkNASS.local` / `/volumeUSB1/usbshare/media` | NAS NFS host name and export (required) |
+| `persistence.media.size` / `readOnly` | `500Gi` / `true` | `458Gi` / - | media PV |
 | `persistence.media.mountOptions` | `nfsvers=4.1, hard, timeo=600, retrans=3, noatime` | - | NFS mount options |
 | `persistence.backup.server` / `path` | `""` / `""` | `mr0.local` / `/srv/nfs4/homes/mr/jellyfin/backup` | backup NFS target |
 | `persistence.backup.size` / `mountOptions` | `50Gi` / `nfsvers=4.1, hard, timeo=600, retrans=3` | - | backup PV |
 | `persistence.transcode.sizeLimit` | `30Gi` | - | `/transcode` emptyDir |
 | `persistence.tmp.sizeLimit` | `2Gi` | - | `/tmp` emptyDir |
 | `preflight.enabled` | `true` | - | init container |
-| `preflight.libraries` | `movies, series, documentaries, home-videos` | - | required folders below `/media` |
+| `preflight.libraries` | `movies, series, documentaries, home-videos` | + `music` | required folders below `/media` |
 | `preflight.seedEnableMetrics` | `true` | - | first boot: `system.xml` with `EnableMetrics=true` |
 | `preflight.seedTranscodePath` | `true` | - | first boot: `encoding.xml` with `TranscodingTempPath=/transcode` |
 | `metrics.scrape` | `true` | - | `prometheus.io/*` pod annotations (8096 `/metrics`, or 9594 with exporter) |

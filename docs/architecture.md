@@ -22,7 +22,8 @@ State: Phase 1 design. Facts marked (P0) were measured in Phase 0 discovery on 2
         |                                   |
         | NFSv4.1 read-only                 | NFSv4.1 rw
         v                                   v
- Synology NAS (USB volume, Phase 2)     mr0.local:/srv/nfs4/homes/mr/jellyfin/backup
+ riemerkNASS.local (Synology DS220+)    mr0.local:/srv/nfs4/homes/mr/jellyfin/backup
+ /volumeUSB1/usbshare/media (USB SSD)
 
  kube-system: DaemonSet generic-device-plugin (mr2 only) -> announces devic.es/dri-render
  monitoring:  Prometheus (annotation scrape) + Grafana (dashboards, CallMeBot alerts: Phase 6)

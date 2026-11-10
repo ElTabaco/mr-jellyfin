@@ -31,11 +31,21 @@ persistence:
     localPath: /var/lib/mr-jellyfin/cache
     node: mr2
   media:
-    # PENDING Phase 2: Synology NAS host name and NFS export of the USB volume.
-    server: ""
-    path: ""
-    size: 500Gi
+    # Synology DS220+ (mr-nas, 192.168.0.233, DHCP; name from the router DNS), DSM share "usbmedia"
+    # = WD Red SA500 500 GB USB SSD (ext4, 458G). NFS rule: mr2 + mr0 read-only, root squashed (Phase 2).
+    server: riemerkNASS.local
+    path: /volumeUSB1/usbshare/media
+    size: 458Gi
   backup:
     # Same NFS server as the other mr-do-* apps; included in mr0's monthly backup.timer archive.
     server: mr0.local
     path: /srv/nfs4/homes/mr/jellyfin/backup
+
+preflight:
+  # Folders below /volumeUSB1/usbshare/media (created / reorganised in Phase 2).
+  libraries:
+    - movies
+    - series
+    - documentaries
+    - home-videos
+    - music

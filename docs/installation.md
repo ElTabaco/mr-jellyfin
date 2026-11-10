@@ -3,24 +3,36 @@
 Run cluster commands on mr0 (the only host with a working kubeconfig). Host changes need the
 owner's approval per phase ([phase-log.md](phase-log.md)). Values below are the production values.
 
-## 1. NAS (Phase 2)
+## 1. NAS (Phase 2, done 2026-11-10)
 
-Synology NAS with the USB volume holding the library. Required result:
+Synology DS220+ `riemerkNASS` (192.168.0.233, DHCP), DSM 7.3.2. Library on the USB SSD
+(WD Red SA500 500 GB, ext4), DSM share `usbmedia` = `/volumeUSB1/usbshare`:
 
-- NFS service enabled (DSM: Control Panel > File Services > NFS), NFSv4.1 enabled.
-- A shared folder on the USB volume with the library folders:
-  `movies/`, `series/`, `documentaries/`, `home-videos/`.
-- NFS permission for the k3s nodes only: `192.168.0.200` and `192.168.0.202`, privilege
-  **read-only**, squash as decided in Phase 2.
-- Export path (e.g. `/volumeUSB1/usbshare/...`, confirmed in Phase 2) and the NAS host name
-  go into `values-production.yaml` (`persistence.media.server`, `persistence.media.path`).
+```text
+/volumeUSB1/usbshare/media/
+  movies/          series/          documentaries/     home-videos/     music/     games/ (not a library)
+  series/<Series Name (year)>/Season 01/<Series Name (year)> S01E01.mp4
+```
+
+- NFS service on, NFSv4 on, minor version 1 (4.2 is not offered by DSM 7.3).
+- NFS permissions of share `usbmedia` (DSM: Control Panel > Shared Folder > usbmedia > NFS Permissions),
+  set through the DSM WebAPI `SYNO.Core.FileServ.NFS.SharePrivilege` (same as the UI):
+  `192.168.0.202` and `192.168.0.200`, read-only, "Map root to guest", privileged ports only,
+  async, cross-mount. Resulting export:
+  `/volumeUSB1/usbshare 192.168.0.202(ro,root_squash,secure,...) 192.168.0.200(ro,root_squash,secure,...)`.
+- Files are owned by uid 1026 (riemer) with mode 777/755 dirs: readable by the Jellyfin uid 1000.
+- Recommended: DHCP reservation for 192.168.0.233 on the router. The chart uses the name
+  `riemerkNASS.local` (router DNS), which follows the DHCP lease.
 
 Check from mr2 (read-only test mount, removed afterwards):
 
 ```console
-sudo mount -t nfs -o nfsvers=4.1,ro <nas-host>:<export> /mnt/jf-test
+sudo mount -t nfs -o nfsvers=4.1,ro riemerkNASS.local:/volumeUSB1/usbshare/media /mnt/jf-test
 ls /mnt/jf-test && sudo umount /mnt/jf-test
 ```
+
+Adding media: copy files into the library folders on the NAS (SMB/File Station), using the
+Jellyfin naming above; Jellyfin picks them up with its library scan.
 
 ## 2. Node directories on mr2 (Phase 2)
 
