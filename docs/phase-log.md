@@ -100,14 +100,24 @@ First full scan: 2 h 15 min (mostly music metadata). Result: 1 movie, 4 series, 
 - Matched with TMDb/TVDb/IMDb ids, seasons and episode titles: Drifters (2016) 12/12,
   Hellsing (2001) 13/13, Hellsing Ultimate (2006) 10/10.
 - One Piece (1999) matched (ids ok), but the 44 episodes (absolute numbers 811-854, no season folder)
-  land in "Season Unknown" without episode metadata. Fix pending (open item).
-- `movies/anime/Drifters/Drifter.mp4` matched as the movie "Drifters" (TMDb 120457) - probably wrong.
+  landed in "Season Unknown". 2026-11-11: moved to `Season 19` (TMDb numbering, S19E08-S19E51), then
+  the whole series was deleted from the NAS on owner request (44 files, 6.0 GB; no recycle bin on the
+  USB share). Log: `media/.hermes-onepiece-20261111-001550.log`.
+- `movies/anime/Drifters/Drifter.mp4` ("Drifter (2011)", misdetected as "Drifters") deleted on owner
+  request 2026-11-11; empty `movies/anime/` removed.
 - Music: many files only have ID3v1 tags (warning "some fields may be truncated").
 
 Playback (API test, Hellsing S01E01, h264 720x540 + aac in mp4):
 - Direct Play supported; direct stream 52 MB at 28-29 MB/s.
 - Remux HLS (stream copy) ok; forced software transcode (libx264, 640 px, 250 kbit/s): 25x realtime,
   0 ffmpeg errors. No GPU yet (Phase 4). Client playback in a browser/TV: owner test.
+
+User accounts (2026-11-11, API): `schmutz`, `alexander`, `cose` - not admin, all libraries,
+remote access off, no content deletion, no control of other sessions. Initial random passwords only in
+the Hermes secret store (`JELLYFIN_PW_<NAME>`); users change them in the client (Settings > Profile).
+`alexander`: max parental rating 12, unrated movies/shows/trailers/Live TV/channel content blocked.
+Verified: with the current library (ratings TV-MA, CH-16, R) `alexander` sees no movie or series,
+`schmutz` sees all. User `liudmyla` was created by the owner in the dashboard.
 
 Backup with API key: `BACKUP OK` - API archive `jellyfin-backup-20261111000536.zip` (8.7 MB,
 67 entries, manifest server 12.4.0.0, sha256 ok) + files archive (26.6 MB, integrity ok).
@@ -116,9 +126,6 @@ Backup with API key: `BACKUP OK` - API archive `jellyfin-backup-20261111000536.z
 
 - DHCP reservation for the NAS (192.168.0.233) on the router (owner).
 - `movies/anime/Drifters/Drifter.mp4`: unknown content, owner to classify.
-- One Piece: 44 episodes in "Season Unknown" (absolute numbering, no season folder) - fix pending owner decision.
-- `Drifter.mp4` matched as movie "Drifters" (TMDb 120457), likely wrong - owner to classify.
-- Normal (non-admin) user accounts - names from the owner.
 - Media on a single USB SSD without a copy; optional NAS-side copy to `/volume1` (RAID 1).
 - `readOnlyRootFilesystem` for the Jellyfin container (not tested yet; stays false).
 - Off-host copy of the backups (mr0 holds both the backups and the monthly archive).
