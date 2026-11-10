@@ -13,7 +13,7 @@ k3s cluster, deployed by Argo CD from this repository. LAN only.
 | Media | Synology DS220+ `riemerkNASS.local:/volumeUSB1/usbshare/media` (USB SSD, 458 GB) over NFSv4.1, read-only |
 | State | node-local SSD on mr2: `/var/lib/mr-jellyfin/{config,cache}` |
 | Backups | daily 03:15 Europe/Zurich to `mr0.local:/srv/nfs4/homes/mr/jellyfin/backup`, 14 kept |
-| Status | Phase 2 (storage) done; Jellyfin not deployed yet: see [docs/phase-log.md](docs/phase-log.md) |
+| Status | Phase 3: deployed and running (no GPU yet): see [docs/phase-log.md](docs/phase-log.md) |
 
 ## Repository layout
 

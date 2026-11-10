@@ -3,6 +3,8 @@
 #
 # Usage:   scripts/healthcheck.sh                 HTTP checks only (any LAN host)
 #          WITH_KUBECTL=1 scripts/healthcheck.sh  plus Kubernetes/Argo CD state (on mr0)
+#          On mr0/mr2 the LoadBalancer IP is not reachable from the node itself (externalTrafficPolicy
+#          Local + NetworkPolicy); there use WITH_KUBECTL=1 SKIP_HTTP=1 (health checked inside the pod).
 # Env:     JELLYFIN_URL (http://192.168.0.5:8096), NAMESPACE (mr-do-jellyfin), RELEASE (mr-do-jellyfin)
 set -uo pipefail
 
@@ -22,6 +24,7 @@ check() {
     fi
 }
 
+if [ "${SKIP_HTTP:-0}" != "1" ]; then
 echo "== HTTP ($JELLYFIN_URL)"
 check "/health returns 200" curl -fsS --max-time 10 "$JELLYFIN_URL/health"
 check "/System/Info/Public" curl -fsS --max-time 10 "$JELLYFIN_URL/System/Info/Public"
@@ -29,10 +32,12 @@ version="$(curl -fsS --max-time 10 "$JELLYFIN_URL/System/Info/Public" 2> /dev/nu
     python3 -c 'import json,sys; print(json.load(sys.stdin).get("Version",""))' 2> /dev/null)"
 echo "        server version: ${version:-unknown}"
 check "/metrics exposed" curl -fsS --max-time 10 "$JELLYFIN_URL/metrics"
+fi
 
 if [ "${WITH_KUBECTL:-0}" = "1" ]; then
     echo "== Kubernetes ($NAMESPACE)"
     check "deployment available" kubectl -n "$NAMESPACE" rollout status deployment "$RELEASE" --timeout=10s
+    check "/health inside the pod" kubectl -n "$NAMESPACE" exec "deploy/$RELEASE" -c jellyfin -- curl -fsS --max-time 10 http://127.0.0.1:8096/health
     for pvc in config cache media backup; do
         phase="$(kubectl -n "$NAMESPACE" get pvc "${RELEASE}-pvc-$pvc" -o jsonpath='{.status.phase}' 2> /dev/null)"
         check "pvc $pvc Bound (${phase:-missing})" test "$phase" = "Bound"

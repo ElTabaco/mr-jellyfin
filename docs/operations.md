@@ -21,13 +21,19 @@
 Needed by the backup job (API archive) and the exporter (Phase 6). Create once, after setup:
 
 1. Dashboard > API Keys > `+`, name `mr-do-jellyfin-automation`.
-2. On mr0, without the key in the shell history:
+2. On mr0, without the key in argv, the shell history or a file (the key is read from stdin):
 
 ```console
 read -r -s -p "API key: " K && echo
-kubectl -n mr-do-jellyfin create secret generic mr-do-jellyfin-api-key --from-literal=api-key="$K"
+printf '%s' "$K" | kubectl -n mr-do-jellyfin create secret generic mr-do-jellyfin-api-key \
+  --from-file=api-key=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -
 unset K
 ```
+
+The production Secret was created 2026-11-10 this way, fed from the Hermes secret store
+(`JELLYFIN_API_KEY`) over the SSH channel's stdin. API clients must send the key in the
+`Authorization: MediaBrowser Token="<key>"` header: Jellyfin 12 disables legacy authorization, and
+the `api_key` query parameter is rejected for HLS endpoints (HTTP 401).
 
 Rotate: create a new key, `kubectl -n mr-do-jellyfin delete secret mr-do-jellyfin-api-key`, create it
 again, delete the old key in the dashboard. The Secret is not managed by Argo CD (no secret in Git);
