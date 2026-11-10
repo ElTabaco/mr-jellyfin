@@ -3,9 +3,9 @@
 | Phase | Status | Date | Approval / result |
 |---|---|---|---|
 | 0 Discovery | done | 2026-11-10 | Report approved 2026-11-10 |
-| 1 Repository | done, in review | 2026-11-10 | PR #1; waits for merge |
-| 2 Storage | done, in review | 2026-11-10 | Changes A1-A4, B-E approved 2026-11-10 ("approve all"); results below |
-| 3 Deployment | not started | | needs PR #1 merged |
+| 1 Repository | done | 2026-11-10 | PR #1 merged |
+| 2 Storage | done | 2026-11-10 | Changes A1-A4, B-E approved 2026-11-10 ("approve all"); results below |
+| 3 Deployment | done, in review | 2026-11-10/11 | approved 2026-11-10; results below |
 | 4 AMD GPU | not started | | device plugin approved 2026-11-10 |
 | 5 Online sources / plugins | not started | | |
 | 6 Monitoring / four-viewer test | not started | | |
@@ -74,13 +74,52 @@ as uid 1000 under Pod Security `restricted`:
 - Not tested: NFS access from a host outside the rule (test host mr-v100 unreachable); verified by
   the generated `/etc/exports` only. NAS outage during playback (Phase 6).
 
+## Phase 3 results (2026-11-10/11)
+
+Deployment (`kubectl apply -f kubernetes/application.yaml` on mr0, then Argo CD):
+- Argo CD `mr-do-jellyfin` Synced/Healthy within 30 s; namespace with Pod Security `restricted`.
+- Pod on mr2 as uid 1000, 0 restarts; 4 PVCs Bound; Service `192.168.0.5:8096` (MetalLB).
+- Preflight: NFS media + 5 libraries ok; seeded `EnableMetrics=true`, `TranscodingTempPath=/transcode`.
+- Jellyfin 12.4.0 started in 4.8 s, ffmpeg 8.1.3 (jellyfin-ffmpeg). No errors in the startup log
+  (EF Core migration warnings on the fresh database only).
+- LAN (from the Hermes host): `/health` 200, `/web/` 200, `/System/Info/Public`, `/metrics` ok.
+- Probes work with the NetworkPolicy; a pod in another namespace is refused (NetworkPolicy works).
+  The LB IP / ClusterIP is not reachable from the nodes themselves (by design, see troubleshooting).
+- Prometheus `kubernetes-pods` job scrapes `10.42.2.19:8096/metrics`: up.
+
+Setup (owner in the browser): wizard done, admin user `mr`, remote access off, UPnP off, metadata
+country CH, API key `mr-do-jellyfin-automation` (Hermes store `JELLYFIN_API_KEY`, Kubernetes Secret
+`mr-do-jellyfin-api-key`, created from stdin, 32 chars, not in Git).
+
+Libraries (API, realtime monitoring off because NFS changes are not visible to inotify; scheduled
+scan every 12 h): Movies `/media/movies`, Shows `/media/series`, Documentaries `/media/documentaries`,
+Home Videos `/media/home-videos`, Music `/media/music`.
+
+First full scan: 2 h 15 min (mostly music metadata). Result: 1 movie, 4 series, 79 episodes,
+516 albums, 15,322 songs, 2,584 artists.
+- Matched with TMDb/TVDb/IMDb ids, seasons and episode titles: Drifters (2016) 12/12,
+  Hellsing (2001) 13/13, Hellsing Ultimate (2006) 10/10.
+- One Piece (1999) matched (ids ok), but the 44 episodes (absolute numbers 811-854, no season folder)
+  land in "Season Unknown" without episode metadata. Fix pending (open item).
+- `movies/anime/Drifters/Drifter.mp4` matched as the movie "Drifters" (TMDb 120457) - probably wrong.
+- Music: many files only have ID3v1 tags (warning "some fields may be truncated").
+
+Playback (API test, Hellsing S01E01, h264 720x540 + aac in mp4):
+- Direct Play supported; direct stream 52 MB at 28-29 MB/s.
+- Remux HLS (stream copy) ok; forced software transcode (libx264, 640 px, 250 kbit/s): 25x realtime,
+  0 ffmpeg errors. No GPU yet (Phase 4). Client playback in a browser/TV: owner test.
+
+Backup with API key: `BACKUP OK` - API archive `jellyfin-backup-20261111000536.zip` (8.7 MB,
+67 entries, manifest server 12.4.0.0, sha256 ok) + files archive (26.6 MB, integrity ok).
+
 ## Open items
 
 - DHCP reservation for the NAS (192.168.0.233) on the router (owner).
 - `movies/anime/Drifters/Drifter.mp4`: unknown content, owner to classify.
-- One Piece absolute numbering: matching to be checked after the first library scan (Phase 3).
+- One Piece: 44 episodes in "Season Unknown" (absolute numbering, no season folder) - fix pending owner decision.
+- `Drifter.mp4` matched as movie "Drifters" (TMDb 120457), likely wrong - owner to classify.
+- Normal (non-admin) user accounts - names from the owner.
 - Media on a single USB SSD without a copy; optional NAS-side copy to `/volume1` (RAID 1).
-- `readOnlyRootFilesystem` for the Jellyfin container (test in Phase 3).
-- NetworkPolicy + kubelet probes on k3s (verify in Phase 3).
+- `readOnlyRootFilesystem` for the Jellyfin container (not tested yet; stays false).
 - Off-host copy of the backups (mr0 holds both the backups and the monthly archive).
 - Prometheus `rule_files` + CallMeBot routing in mr-do-observer (Phase 6).

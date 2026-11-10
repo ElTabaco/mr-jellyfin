@@ -32,6 +32,10 @@ kubectl -n mr-do-jellyfin logs deploy/mr-do-jellyfin -c jellyfin --tail=200
 - Client outside `192.168.0.0/24` (VPN, other VLAN): blocked by `loadBalancerSourceRanges` and the
   NetworkPolicy by design.
 - `curl -v http://192.168.0.5:8096/health` from a LAN host.
+- From the k3s nodes themselves (mr0, mr2) `192.168.0.5` and the ClusterIP are **not** reachable, by
+  design: mr0 has no local endpoint (`externalTrafficPolicy: Local`), and node-originated traffic
+  reaches the pod from the CNI bridge address (10.42.x.1), which the NetworkPolicy does not allow.
+  On a node use `WITH_KUBECTL=1 SKIP_HTTP=1 scripts/healthcheck.sh` (checks `/health` inside the pod).
 
 ## Playback problems
 
