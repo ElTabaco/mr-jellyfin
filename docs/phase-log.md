@@ -5,7 +5,7 @@
 | 0 Discovery | done | 2026-11-10 | Report approved 2026-11-10 |
 | 1 Repository | done | 2026-11-10 | PR #1 merged |
 | 2 Storage | done | 2026-11-10 | Changes A1-A4, B-E approved 2026-11-10 ("approve all"); results below |
-| 3 Deployment | done, in review | 2026-11-10/11 | approved 2026-11-10; results below |
+| 3 Deployment | done | 2026-11-10/11 | approved 2026-11-10; owner playback test OK 2026-11-11 |
 | 4 AMD GPU | not started | | device plugin approved 2026-11-10 |
 | 5 Online sources / plugins | not started | | |
 | 6 Monitoring / four-viewer test | not started | | |
@@ -110,7 +110,8 @@ First full scan: 2 h 15 min (mostly music metadata). Result: 1 movie, 4 series, 
 Playback (API test, Hellsing S01E01, h264 720x540 + aac in mp4):
 - Direct Play supported; direct stream 52 MB at 28-29 MB/s.
 - Remux HLS (stream copy) ok; forced software transcode (libx264, 640 px, 250 kbit/s): 25x realtime,
-  0 ffmpeg errors. No GPU yet (Phase 4). Client playback in a browser/TV: owner test.
+  0 ffmpeg errors. No GPU yet (Phase 4).
+- Client playback (browser + Android TV): owner test 2026-11-11 - OK.
 
 User accounts (2026-11-11, API): `schmutz`, `alexander`, `cose` - not admin, all libraries,
 remote access off, no content deletion, no control of other sessions. Initial random passwords only in
