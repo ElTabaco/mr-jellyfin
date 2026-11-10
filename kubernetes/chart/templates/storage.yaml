@@ -1,0 +1,152 @@
+{{- /*
+Static PersistentVolumes + claims. Every PV is Retain and every PV/PVC carries
+helm.sh/resource-policy=keep and Argo CD Prune=false,Delete=false, so neither an
+Argo CD prune nor an app deletion removes storage. Claims bind by label selector.
+*/ -}}
+{{- $fn := include "jf.fullname" . -}}
+{{- $local := dict "config" (include "jf.configNode" .) "cache" (include "jf.cacheNode" .) -}}
+{{- range $name := list "config" "cache" }}
+{{- $p := index $.Values.persistence $name }}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ $fn }}-pv-{{ $name }}
+  labels:
+    {{- include "jf.labels" $ | nindent 4 }}
+    usage: {{ $fn }}-pv-{{ $name }}
+  annotations:
+    {{- include "jf.keepAnnotations" $ | nindent 4 }}
+spec:
+  capacity:
+    storage: {{ $p.size }}
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  volumeMode: Filesystem
+  local:
+    path: {{ $p.localPath | quote }}
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - {{ index $local $name | quote }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $fn }}-pvc-{{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "jf.labels" $ | nindent 4 }}
+  annotations:
+    {{- include "jf.keepAnnotations" $ | nindent 4 }}
+spec:
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ $p.size }}
+  selector:
+    matchLabels:
+      usage: {{ $fn }}-pv-{{ $name }}
+{{- end }}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ $fn }}-pv-media
+  labels:
+    {{- include "jf.labels" . | nindent 4 }}
+    usage: {{ $fn }}-pv-media
+  annotations:
+    {{- include "jf.keepAnnotations" . | nindent 4 }}
+spec:
+  capacity:
+    storage: {{ .Values.persistence.media.size }}
+  accessModes:
+    - ReadOnlyMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  volumeMode: Filesystem
+  {{- with .Values.persistence.media.mountOptions }}
+  mountOptions:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  nfs:
+    server: {{ include "jf.mediaServer" . | quote }}
+    path: {{ include "jf.mediaPath" . | quote }}
+    readOnly: {{ .Values.persistence.media.readOnly }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $fn }}-pvc-media
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jf.labels" . | nindent 4 }}
+  annotations:
+    {{- include "jf.keepAnnotations" . | nindent 4 }}
+spec:
+  storageClassName: ""
+  accessModes:
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: {{ .Values.persistence.media.size }}
+  selector:
+    matchLabels:
+      usage: {{ $fn }}-pv-media
+{{- if .Values.backup.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ $fn }}-pv-backup
+  labels:
+    {{- include "jf.labels" . | nindent 4 }}
+    usage: {{ $fn }}-pv-backup
+  annotations:
+    {{- include "jf.keepAnnotations" . | nindent 4 }}
+spec:
+  capacity:
+    storage: {{ .Values.persistence.backup.size }}
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  volumeMode: Filesystem
+  {{- with .Values.persistence.backup.mountOptions }}
+  mountOptions:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  nfs:
+    server: {{ required "persistence.backup.server is required when backup.enabled" .Values.persistence.backup.server | quote }}
+    path: {{ required "persistence.backup.path is required when backup.enabled" .Values.persistence.backup.path | quote }}
+    readOnly: false
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $fn }}-pvc-backup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jf.labels" . | nindent 4 }}
+  annotations:
+    {{- include "jf.keepAnnotations" . | nindent 4 }}
+spec:
+  storageClassName: ""
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.persistence.backup.size }}
+  selector:
+    matchLabels:
+      usage: {{ $fn }}-pv-backup
+{{- end }}

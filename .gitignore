@@ -1,0 +1,11 @@
+# Local tooling / scratch
+.venv/
+__pycache__/
+*.pyc
+*.tgz
+/tmp/
+# Never commit secrets or kubeconfigs
+*.env
+.env*
+kubeconfig*
+*-secret.yaml

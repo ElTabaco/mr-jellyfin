@@ -1,0 +1,197 @@
+# Default values for mr-do-jellyfin.
+# Environment-specific values (node, IPs, NAS, paths) live in values-production.yaml.
+# Every value is documented in README.md ("Helm values").
+
+# -- Override the release-based resource name prefix. Default: <release name>.
+fullnameOverride: ""
+
+image:
+  # -- Official Jellyfin image (https://hub.docker.com/r/jellyfin/jellyfin).
+  repository: docker.io/jellyfin/jellyfin
+  # -- Pinned, immutable release tag. Never "latest".
+  tag: "12.4.20261026-211555"
+  # -- Multi-arch index digest of the tag above. The pod pulls tag@digest.
+  digest: "sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771"
+  pullPolicy: IfNotPresent
+
+# -- Time zone for Jellyfin and the backup CronJob.
+timeZone: Europe/Zurich
+
+# -- URL Jellyfin announces to clients in auto-discovery replies (JELLYFIN_PublishedServerUrl). Empty = not set.
+publishedServerUrl: ""
+
+# -- Node selector. The config/cache local PVs pin the pod to their node anyway.
+nodeSelector: {}
+
+# -- Tolerations for the Jellyfin pod and the backup job.
+tolerations: []
+
+# -- Pod / container identity. UID/GID own /config and /cache on the node (see docs/installation.md).
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  # -- Extra supplemental groups. The render GID is added automatically when gpu.enabled=true.
+  supplementalGroups: []
+  # -- Read-only root filesystem for the Jellyfin container. Off until verified with this image (Phase 3).
+  readOnlyRootFilesystem: false
+
+gpu:
+  # -- Request the GPU render node from the generic device plugin (kubernetes/platform/gpu-device-plugin).
+  enabled: false
+  # -- Extended resource name announced by the device plugin.
+  resourceName: devic.es/dri-render
+  # -- GID of the "render" group on the GPU node (owner group of /dev/dri/renderD128). mr2: 992.
+  renderGroupId: 992
+  # -- Render node path inside the container (Jellyfin dashboard: VA-API device).
+  vaapiDevice: /dev/dri/renderD128
+
+service:
+  # -- LoadBalancer (MetalLB) is the client entry point; no Ingress (LAN only, plain HTTP).
+  type: LoadBalancer
+  port: 8096
+  # -- Fixed MetalLB IP (annotation metallb.io/loadBalancerIPs). Empty = auto-assign.
+  loadBalancerIP: ""
+  # -- MetalLB pool (annotation metallb.io/address-pool). Empty = any pool.
+  addressPool: ""
+  # -- Local keeps the client IP (Jellyfin LAN detection) and announces the IP from the pod's node.
+  externalTrafficPolicy: Local
+  # -- CIDRs allowed to reach the LoadBalancer (kube-proxy enforced).
+  loadBalancerSourceRanges: []
+  annotations: {}
+
+networkPolicy:
+  # -- Restrict ingress to the LAN, the monitoring namespace and the backup job. Egress stays open
+  #    (metadata providers, NAS, IPTV sources).
+  enabled: true
+  # -- Client CIDRs allowed to reach port 8096.
+  lanCidrs: []
+  # -- Namespace of Prometheus (scrapes /metrics and the exporter).
+  monitoringNamespace: monitoring
+
+persistence:
+  # Jellyfin data dir (/config): database (data/jellyfin.db), server config (config/*.xml),
+  # plugins + plugin configuration (plugins/), library definitions (root/), metadata, logs.
+  config:
+    # -- Node-local directory (must exist, owned by securityContext.runAsUser).
+    localPath: /var/lib/mr-jellyfin/config
+    # -- Node that holds localPath.
+    node: ""
+    size: 20Gi
+  # Jellyfin cache dir (/cache): image cache, trickplay temp, XDG cache.
+  cache:
+    localPath: /var/lib/mr-jellyfin/cache
+    node: ""
+    size: 50Gi
+  # Media library on the NAS (NFSv4), mounted read-only at /media.
+  media:
+    # -- NFS server host name (not an IP literal; see scripts/check-no-secrets.sh).
+    server: ""
+    # -- Exported path that contains movies/, series/, documentaries/, home-videos/.
+    path: ""
+    size: 500Gi
+    readOnly: true
+    mountOptions:
+      - nfsvers=4.1
+      - hard
+      - timeo=600
+      - retrans=3
+      - noatime
+  # Backup target (NFS, read-write), mounted only by the backup CronJob at /backup.
+  backup:
+    server: ""
+    path: ""
+    size: 50Gi
+    mountOptions:
+      - nfsvers=4.1
+      - hard
+      - timeo=600
+      - retrans=3
+  # Transcoding scratch (emptyDir on the node SSD, wiped on restart). Seeded as TranscodingTempPath.
+  transcode:
+    sizeLimit: 30Gi
+  # /tmp (emptyDir).
+  tmp:
+    sizeLimit: 2Gi
+
+# Init container: checks the NFS media mount and library folders before Jellyfin starts,
+# and seeds config files that do not exist yet (first boot only, never overwrites).
+preflight:
+  enabled: true
+  # -- Library folders that must exist under /media. Empty folders are allowed.
+  libraries:
+    - movies
+    - series
+    - documentaries
+    - home-videos
+  # -- First boot only: write config/system.xml with EnableMetrics=true if the file is absent.
+  seedEnableMetrics: true
+  # -- First boot only: write config/encoding.xml with TranscodingTempPath=/transcode if absent.
+  seedTranscodePath: true
+
+metrics:
+  # -- Add prometheus.io/scrape annotations (existing annotation-based Prometheus job).
+  scrape: true
+
+# rebelcore/jellyfin_exporter sidecar (sessions, libraries, playback). Needs an API key Secret,
+# created out of band (docs/operations.md). Enable in Phase 6.
+exporter:
+  enabled: false
+  image:
+    repository: docker.io/rebelcore/jellyfin-exporter
+    tag: v1.6.0
+    digest: "sha256:d1985ef9ad50b8924e74ee1dd12accd64936a65150375a8e190c2293b6e2678c"
+  port: 9594
+  # -- Secret (in the release namespace) holding the Jellyfin API key.
+  apiKeySecret: mr-do-jellyfin-api-key
+  apiKeySecretKey: api-key
+  resources:
+    requests: {cpu: 10m, memory: 32Mi}
+    limits: {cpu: 100m, memory: 64Mi}
+
+backup:
+  # -- Daily CronJob: Jellyfin backup API archive (if API key present) + consistent SQLite copy
+  #    and config/plugin tarball. Writes to persistence.backup.
+  enabled: true
+  schedule: "15 3 * * *"
+  # -- Number of backups of each kind kept on the backup target.
+  keep: 14
+  # -- Number of Jellyfin API archives kept in /config/data/backups (shown in the dashboard restore UI).
+  keepLocalApiArchives: 3
+  image:
+    repository: docker.io/library/python
+    tag: 3.14.10-slim-trixie
+    digest: "sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f"
+  # -- Secret with an admin API key for POST /Backup/Create. Optional: without it only the file backup runs.
+  apiKeySecret: mr-do-jellyfin-api-key
+  apiKeySecretKey: api-key
+  activeDeadlineSeconds: 3600
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: "1", memory: 512Mi}
+
+resources:
+  requests:
+    cpu: "1"
+    memory: 2Gi
+  limits:
+    cpu: "6"
+    memory: 8Gi
+
+probes:
+  # -- Up to 10 min for first start / database migrations before liveness applies.
+  startup:
+    periodSeconds: 10
+    failureThreshold: 60
+    timeoutSeconds: 5
+  liveness:
+    periodSeconds: 30
+    failureThreshold: 5
+    timeoutSeconds: 5
+  readiness:
+    periodSeconds: 10
+    failureThreshold: 3
+    timeoutSeconds: 5
+
+# -- Extra environment variables for the Jellyfin container.
+extraEnv: []

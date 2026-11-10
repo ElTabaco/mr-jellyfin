@@ -1,0 +1,51 @@
+# Environment values for the mr home lab (k3s mr0 + mr2). Applied on top of values.yaml
+# by kubernetes/application.yaml. Values verified in Phase 0 (docs/architecture.md).
+
+publishedServerUrl: "http://192.168.0.5:8096"
+
+# GPU node (AMD Radeon 780M / VCN 4.0). Only node with an AMD GPU.
+nodeSelector:
+  kubernetes.io/hostname: mr2
+
+gpu:
+  # Phase 4 switches this on after the device plugin is deployed and vainfo is verified.
+  enabled: false
+  renderGroupId: 992
+
+service:
+  # Approved 2026-11-10 (free in MetalLB pool first-pool 192.168.0.2-29).
+  loadBalancerIP: 192.168.0.5
+  addressPool: first-pool
+  loadBalancerSourceRanges:
+    - 192.168.0.0/24
+
+networkPolicy:
+  lanCidrs:
+    - 192.168.0.0/24
+
+persistence:
+  config:
+    localPath: /var/lib/mr-jellyfin/config
+    node: mr2
+  cache:
+    localPath: /var/lib/mr-jellyfin/cache
+    node: mr2
+  media:
+    # Synology DS220+ (mr-synology-nas, 192.168.0.233, DHCP; name from the router DNS), DSM share "usbmedia"
+    # = WD Red SA500 500 GB USB SSD (ext4, 458G). NFS rule: mr2 + mr0 read-only, root squashed (Phase 2).
+    server: riemerkNASS.local
+    path: /volumeUSB1/usbshare/media
+    size: 458Gi
+  backup:
+    # Same NFS server as the other mr-do-* apps; included in mr0's monthly backup.timer archive.
+    server: mr0.local
+    path: /srv/nfs4/homes/mr/jellyfin/backup
+
+preflight:
+  # Folders below /volumeUSB1/usbshare/media (created / reorganised in Phase 2).
+  libraries:
+    - movies
+    - series
+    - documentaries
+    - home-videos
+    - music

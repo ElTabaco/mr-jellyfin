@@ -1,0 +1,46 @@
+name: Validate
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+env:
+  HELM_VERSION: v4.3.1
+  KUBECONFORM_VERSION: v0.8.0
+  # Same version as the cluster Prometheus (monitoring/prometheus-deployment).
+  PROMETHEUS_VERSION: 3.13.1
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install tools (checksum-verified)
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/bin" && cd "$RUNNER_TEMP"
+          curl -fsSLO "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz.sha256sum" | sha256sum -c -
+          tar xzf "helm-${HELM_VERSION}-linux-amd64.tar.gz" && mv linux-amd64/helm "$HOME/bin/"
+          base="https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}"
+          curl -fsSLO "$base/kubeconform-linux-amd64.tar.gz"
+          curl -fsSL "$base/CHECKSUMS" | grep ' kubeconform-linux-amd64.tar.gz$' | sha256sum -c -
+          tar xzf kubeconform-linux-amd64.tar.gz -C "$HOME/bin" kubeconform
+          base="https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}"
+          curl -fsSLO "$base/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+          curl -fsSL "$base/sha256sums.txt" | grep " prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz$" | sha256sum -c -
+          tar xzf "prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+          mv "prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool" "$HOME/bin/"
+          python3 -m venv "$HOME/venv"
+          "$HOME/venv/bin/pip" install --quiet pyyaml yamllint shellcheck-py
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+          echo "$HOME/venv/bin" >> "$GITHUB_PATH"
+
+      - name: Static validation
+        run: PYTHON="$HOME/venv/bin/python" bash scripts/validate.sh

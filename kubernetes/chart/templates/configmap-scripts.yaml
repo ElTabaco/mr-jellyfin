@@ -1,0 +1,24 @@
+{{- $fn := include "jf.fullname" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fn }}-scripts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jf.labels" . | nindent 4 }}
+data:
+  preflight.sh: |
+    {{- .Files.Get "files/preflight.sh" | nindent 4 }}
+  backup.py: |
+    {{- .Files.Get "files/backup.py" | nindent 4 }}
+  restore.py: |
+    {{- .Files.Get "files/restore.py" | nindent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $fn }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jf.labels" . | nindent 4 }}
+automountServiceAccountToken: false

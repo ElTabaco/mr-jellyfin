@@ -1,0 +1,185 @@
+{{- $fn := include "jf.fullname" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fn }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jf.labels" . | nindent 4 }}
+spec:
+  # Exactly one instance: SQLite database on a node-local volume.
+  replicas: 1
+  revisionHistoryLimit: 3
+  # Recreate: never run two Jellyfin processes against the same database.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "jf.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "jf.labels" . | nindent 8 }}
+      annotations:
+        checksum/scripts: {{ include (print $.Template.BasePath "/configmap-scripts.yaml") . | sha256sum }}
+        {{- if .Values.metrics.scrape }}
+        prometheus.io/scrape: "true"
+        {{- if .Values.exporter.enabled }}
+        prometheus.io/port: {{ .Values.exporter.port | quote }}
+        prometheus.io/path: /metrics
+        {{- else }}
+        prometheus.io/port: {{ .Values.service.port | quote }}
+        prometheus.io/path: /metrics
+        {{- end }}
+        {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: {{ $fn }}
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        {{- include "jf.podSecurityContext" . | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.preflight.enabled }}
+      initContainers:
+        - name: preflight
+          image: {{ include "jf.image" .Values.image }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "/scripts/preflight.sh"]
+          env:
+            - name: LIBRARIES
+              value: {{ join " " .Values.preflight.libraries | quote }}
+            - name: SEED_ENABLE_METRICS
+              value: {{ .Values.preflight.seedEnableMetrics | quote }}
+            - name: SEED_TRANSCODE_PATH
+              value: {{ .Values.preflight.seedTranscodePath | quote }}
+          securityContext:
+            {{- include "jf.containerSecurityContext" . | nindent 12 }}
+            readOnlyRootFilesystem: true
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 200m, memory: 64Mi}
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: config
+              mountPath: /config
+            - name: cache
+              mountPath: /cache
+            - name: media
+              mountPath: /media
+              readOnly: true
+      {{- end }}
+      containers:
+        - name: jellyfin
+          image: {{ include "jf.image" .Values.image }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8096
+              protocol: TCP
+          env:
+            - name: TZ
+              value: {{ .Values.timeZone | quote }}
+            {{- with .Values.publishedServerUrl }}
+            - name: JELLYFIN_PublishedServerUrl
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          securityContext:
+            {{- include "jf.containerSecurityContext" . | nindent 12 }}
+            readOnlyRootFilesystem: {{ .Values.securityContext.readOnlyRootFilesystem }}
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+          resources:
+            requests:
+              {{- toYaml .Values.resources.requests | nindent 14 }}
+            limits:
+              {{- toYaml .Values.resources.limits | nindent 14 }}
+              {{- if .Values.gpu.enabled }}
+              {{ .Values.gpu.resourceName }}: 1
+              {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: cache
+              mountPath: /cache
+            - name: media
+              mountPath: /media
+              readOnly: true
+            - name: transcode
+              mountPath: /transcode
+            - name: tmp
+              mountPath: /tmp
+        {{- if .Values.exporter.enabled }}
+        - name: exporter
+          image: {{ include "jf.image" .Values.exporter.image }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: JELLYFIN_ADDRESS
+              value: "http://127.0.0.1:8096"
+            - name: JELLYFIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.exporter.apiKeySecret }}
+                  key: {{ .Values.exporter.apiKeySecretKey }}
+          ports:
+            - name: exporter
+              containerPort: {{ .Values.exporter.port }}
+              protocol: TCP
+          securityContext:
+            {{- include "jf.containerSecurityContext" . | nindent 12 }}
+            readOnlyRootFilesystem: true
+          resources:
+            {{- toYaml .Values.exporter.resources | nindent 12 }}
+        {{- end }}
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ $fn }}-scripts
+            defaultMode: 0555
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ $fn }}-pvc-config
+        - name: cache
+          persistentVolumeClaim:
+            claimName: {{ $fn }}-pvc-cache
+        - name: media
+          persistentVolumeClaim:
+            claimName: {{ $fn }}-pvc-media
+            readOnly: true
+        - name: transcode
+          emptyDir:
+            sizeLimit: {{ .Values.persistence.transcode.sizeLimit }}
+        - name: tmp
+          emptyDir:
+            sizeLimit: {{ .Values.persistence.tmp.sizeLimit }}
