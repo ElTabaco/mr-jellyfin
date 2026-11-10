@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mr-do-jellyfin
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ElTabaco/mr-jellyfin.git
+    targetRevision: main
+    path: kubernetes/chart
+    helm:
+      releaseName: mr-do-jellyfin
+      valueFiles:
+        - values.yaml
+        - values-production.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mr-do-jellyfin
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    # Namespace owned by Argo CD (no separate namespace manifest). Pod Security
+    # "restricted" is enforced: non-root, no privilege escalation, no hostPath.
+    managedNamespaceMetadata:
+      labels:
+        app.kubernetes.io/part-of: mr-do-jellyfin
+        pod-security.kubernetes.io/enforce: restricted
+        pod-security.kubernetes.io/enforce-version: latest
+        pod-security.kubernetes.io/warn: restricted
+        pod-security.kubernetes.io/audit: restricted
+  ignoreDifferences:
+    # MetalLB writes status.loadBalancer to Service objects at runtime.
+    - group: ""
+      kind: Service
+      jsonPointers:
+        - /status

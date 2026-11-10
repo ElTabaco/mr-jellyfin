@@ -1,0 +1,10 @@
+mr-do-jellyfin {{ .Chart.AppVersion }} ({{ .Values.image.tag }})
+
+Web UI:   {{ if .Values.service.loadBalancerIP }}http://{{ .Values.service.loadBalancerIP }}:{{ .Values.service.port }}{{ else }}kubectl -n {{ .Release.Namespace }} get svc {{ include "jf.fullname" . }}{{ end }}
+Health:   curl -fsS http://<ip>:{{ .Values.service.port }}/health
+Pods:     kubectl -n {{ .Release.Namespace }} get pods -o wide
+Backup:   kubectl -n {{ .Release.Namespace }} create job --from=cronjob/{{ include "jf.fullname" . }}-backup {{ include "jf.fullname" . }}-backup-manual-$(date +%s)
+GPU:      {{ if .Values.gpu.enabled }}enabled ({{ .Values.gpu.resourceName }}, {{ .Values.gpu.vaapiDevice }}){{ else }}disabled (software transcoding only){{ end }}
+
+Storage objects are annotated helm.sh/resource-policy=keep and Argo CD Prune=false,Delete=false.
+Docs: https://github.com/ElTabaco/mr-jellyfin/tree/main/docs

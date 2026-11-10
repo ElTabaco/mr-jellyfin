@@ -1,0 +1,27 @@
+# Test values for scripts/validate.sh and CI only. Uses documentation-only names
+# (RFC 2606 .invalid, RFC 5737 TEST-NET); never deployed.
+nodeSelector:
+  kubernetes.io/hostname: test-node
+gpu:
+  enabled: true
+service:
+  loadBalancerIP: 192.0.2.5
+  addressPool: test-pool
+  loadBalancerSourceRanges:
+    - 192.0.2.0/24
+networkPolicy:
+  lanCidrs:
+    - 192.0.2.0/24
+persistence:
+  config:
+    node: test-node
+  cache:
+    node: test-node
+  media:
+    server: nas.example.invalid
+    path: /export/media
+  backup:
+    server: backup.example.invalid
+    path: /export/backup
+exporter:
+  enabled: true

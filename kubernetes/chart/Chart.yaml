@@ -1,0 +1,18 @@
+apiVersion: v2
+name: mr-do-jellyfin
+description: Jellyfin media server for the mr k3s home lab (LAN only, NFS media, local SSD state, AMD VA-API)
+type: application
+# Chart version: bump on every change to templates or default values.
+version: 0.1.0
+# Jellyfin server version deployed by default (see values.yaml image.tag / image.digest).
+appVersion: "12.4"
+home: https://github.com/ElTabaco/mr-jellyfin
+sources:
+  - https://github.com/ElTabaco/mr-jellyfin
+  - https://github.com/jellyfin/jellyfin
+keywords:
+  - jellyfin
+  - media
+  - vaapi
+maintainers:
+  - name: ElTabaco

@@ -1,0 +1,50 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $fn := include "jf.fullname" . -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fn }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jf.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "jf.selectorLabels" . | nindent 6 }}
+  # Ingress only. Egress stays open: metadata providers, NAS, authorized stream sources.
+  policyTypes:
+    - Ingress
+  ingress:
+    {{- with .Values.networkPolicy.lanCidrs }}
+    # LAN clients (client IP preserved by externalTrafficPolicy: Local).
+    - from:
+        {{- range . }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: 8096
+    {{- end }}
+    # Prometheus scrape (built-in /metrics and the exporter sidecar).
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.monitoringNamespace }}
+      ports:
+        - protocol: TCP
+          port: 8096
+        {{- if .Values.exporter.enabled }}
+        - protocol: TCP
+          port: {{ .Values.exporter.port }}
+        {{- end }}
+    # Backup CronJob calls the Jellyfin backup API.
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: backup
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: 8096
+{{- end }}

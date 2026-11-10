@@ -1,0 +1,64 @@
+# promtool unit tests for alerts.yaml: promtool test rules alerts.test.yaml
+rule_files:
+  - alerts.yaml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'up{job="kubernetes-pods", namespace="mr-do-jellyfin", app="mr-do-jellyfin", pod="mr-do-jellyfin-0"}'
+        values: "1 1 0 0 0 0 0 0 0 0"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: JellyfinDown
+        exp_alerts: []
+      - eval_time: 9m
+        alertname: JellyfinDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: Jellyfin metrics endpoint not reachable for 5 minutes
+              description: >-
+                No successful scrape of the Jellyfin pod. Check: kubectl -n mr-do-jellyfin get pods;
+                scripts/healthcheck.sh; docs/troubleshooting.md "Pod not ready".
+
+  - interval: 1m
+    input_series:
+      - series: 'kube_job_status_failed{namespace="mr-do-jellyfin", job_name="mr-do-jellyfin-backup-29001"}'
+        values: "0 0 1"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: JellyfinBackupFailed
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: JellyfinBackupFailed
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              namespace: mr-do-jellyfin
+              job_name: mr-do-jellyfin-backup-29001
+            exp_annotations:
+              summary: Backup job mr-do-jellyfin-backup-29001 failed
+              description: kubectl -n mr-do-jellyfin logs job/mr-do-jellyfin-backup-29001; docs/backup-recovery.md
+
+  - interval: 1m
+    input_series:
+      # last success at t=0 (epoch 0 in promtool time); no later success
+      - series: 'kube_cronjob_status_last_successful_time{namespace="mr-do-jellyfin", cronjob="mr-do-jellyfin-backup"}'
+        values: "0x1800"
+    alert_rule_test:
+      - eval_time: 20h
+        alertname: JellyfinBackupMissing
+        exp_alerts: []
+      - eval_time: 28h
+        alertname: JellyfinBackupMissing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              namespace: mr-do-jellyfin
+              cronjob: mr-do-jellyfin-backup
+            exp_annotations:
+              summary: No successful Jellyfin backup for more than 26 hours
+              description: The daily backup CronJob has not succeeded. Run scripts/backup.sh and check its log.

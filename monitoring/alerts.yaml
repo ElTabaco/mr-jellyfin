@@ -1,0 +1,88 @@
+# Prometheus alerting rules for mr-do-jellyfin.
+# Staged here; Phase 6 adds them to the cluster Prometheus (mr-do-observer: rule_files) and
+# routes them to CallMeBot. Only metrics that exist today are used:
+#   up / kubernetes-pods job (annotation scrape), kube-state-metrics v2.15.0, cAdvisor.
+# Jellyfin session / transcode / GPU / NAS alerts follow in Phase 6, once their metrics
+# (jellyfin_exporter, GPU and NAS exporters) are deployed and their names verified.
+groups:
+  - name: mr-do-jellyfin
+    rules:
+      - alert: JellyfinDown
+        expr: absent(up{job="kubernetes-pods", namespace="mr-do-jellyfin", app="mr-do-jellyfin"} == 1)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Jellyfin metrics endpoint not reachable for 5 minutes
+          description: >-
+            No successful scrape of the Jellyfin pod. Check: kubectl -n mr-do-jellyfin get pods;
+            scripts/healthcheck.sh; docs/troubleshooting.md "Pod not ready".
+
+      - alert: JellyfinNotAvailable
+        expr: kube_deployment_status_replicas_available{namespace="mr-do-jellyfin", deployment="mr-do-jellyfin"} < 1
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: Jellyfin deployment has no available replica for 10 minutes
+          description: >-
+            Pod not ready (preflight failed, NFS mount missing, probes failing).
+            kubectl -n mr-do-jellyfin describe pod -l app=mr-do-jellyfin
+
+      - alert: JellyfinRestarting
+        expr: increase(kube_pod_container_status_restarts_total{namespace="mr-do-jellyfin"}[1h]) > 2
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.container }} restarted {{ $value | humanize }} times in 1h"
+          description: kubectl -n mr-do-jellyfin logs {{ $labels.pod }} -c {{ $labels.container }} --previous
+
+      - alert: JellyfinPVCNotBound
+        expr: kube_persistentvolumeclaim_status_phase{namespace="mr-do-jellyfin", phase!="Bound"} == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PVC {{ $labels.persistentvolumeclaim }} is {{ $labels.phase }}"
+          description: Check the matching PV (kubectl get pv | grep mr-do-jellyfin) and the NFS export / local path.
+
+      - alert: JellyfinMemoryHigh
+        expr: |
+          sum by (pod) (container_memory_working_set_bytes{namespace="mr-do-jellyfin", container="jellyfin"})
+            / sum by (pod) (kube_pod_container_resource_limits{namespace="mr-do-jellyfin", container="jellyfin", resource="memory"})
+            > 0.9
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Jellyfin uses more than 90% of its memory limit
+          description: Risk of OOM kill. Check active transcodes; raise resources.limits.memory if sustained.
+
+      - alert: JellyfinCPUThrottled
+        expr: |
+          sum by (pod) (rate(container_cpu_cfs_throttled_periods_total{namespace="mr-do-jellyfin", container="jellyfin"}[5m]))
+            / sum by (pod) (rate(container_cpu_cfs_periods_total{namespace="mr-do-jellyfin", container="jellyfin"}[5m]))
+            > 0.5
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Jellyfin CPU throttled in more than 50% of periods
+          description: Likely software transcoding. Check that VA-API is used (docs/hardware-compatibility.md).
+
+      - alert: JellyfinBackupFailed
+        expr: kube_job_status_failed{namespace="mr-do-jellyfin", job_name=~"mr-do-jellyfin-backup.*"} > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backup job {{ $labels.job_name }} failed"
+          description: kubectl -n mr-do-jellyfin logs job/{{ $labels.job_name }}; docs/backup-recovery.md
+
+      - alert: JellyfinBackupMissing
+        expr: time() - kube_cronjob_status_last_successful_time{namespace="mr-do-jellyfin", cronjob="mr-do-jellyfin-backup"} > 26 * 3600
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: No successful Jellyfin backup for more than 26 hours
+          description: The daily backup CronJob has not succeeded. Run scripts/backup.sh and check its log.
