@@ -6,7 +6,7 @@
 | 1 Repository | done | 2026-11-10 | PR #1 merged |
 | 2 Storage | done | 2026-11-10 | Changes A1-A4, B-E approved 2026-11-10 ("approve all"); results below |
 | 3 Deployment | done | 2026-11-10/11 | approved 2026-11-10; owner playback test OK 2026-11-11 |
-| 4 AMD GPU | not started | | device plugin approved 2026-11-10 |
+| 4 AMD GPU | in progress | 2026-11-11 | approved 2026-11-11; results below |
 | 5 Online sources / plugins | not started | | |
 | 6 Monitoring / four-viewer test | not started | | |
 | 7 Production acceptance | not started | | |
@@ -122,6 +122,23 @@ Verified: with the current library (ratings TV-MA, CH-16, R) `alexander` sees no
 
 Backup with API key: `BACKUP OK` - API archive `jellyfin-backup-20261111000536.zip` (8.7 MB,
 67 entries, manifest server 12.4.0.0, sha256 ok) + files archive (26.6 MB, integrity ok).
+
+## Phase 4 results (2026-11-11, part 1)
+
+- GPU state before: `/dev/dri/renderD128` root:render(992), no process using `/dev/dri`, `gpu_busy_percent` 0.
+- Device plugin app `mr-do-jellyfin-gpu-device-plugin` applied (`kubectl apply -f
+  kubernetes/platform/gpu-device-plugin/application.yaml`). The DaemonSet pod failed with
+  `StartError`: runc could not create `/dev/termination-log` because host `/dev` is mounted read-only
+  over the container's `/dev`. Fix: `terminationMessagePath: /tmp/termination-log` (this PR). Verified
+  with an identical test pod: plugin registered, node allocatable `devic.es/dri-render: 1`.
+- vainfo + ffmpeg tests in a non-privileged pod with the production image: see
+  [hardware-compatibility.md](hardware-compatibility.md). HW decode H.264/HEVC 8+10-bit/VP9/AV1, HW
+  encode H.264/HEVC/AV1; no MPEG-2/VC-1/VP8; HDR tone mapping failed (no HDR content in the library).
+  Software transcode 1080p->720p used 7.9 CPU cores, the VA-API transcode 0.27 cores.
+- Test namespace removed.
+- Next (after merge): Argo CD deploys the plugin fix and `gpu.enabled: true` (Jellyfin restarts once),
+  `scripts/configure-transcoding.py` sets VA-API in Jellyfin, then a Jellyfin transcode is checked for
+  `HardwareAccelerationType=vaapi`.
 
 ## Open items
 
