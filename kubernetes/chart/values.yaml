@@ -137,7 +137,10 @@ liveTv:
   enabled: false
   mountPath: /livetv
   # -- Channels: id (tvg-id = XMLTV channel id), name, group (group-title), url (HLS); optional
-  # epgSite + epgSiteId (+ epgLang, default de) = iptv-org/epg source for the programme guide.
+  # epgSite + epgSiteId (+ epgLang, default de) = iptv-org/epg source for the programme guide;
+  # optional pinResolution (e.g. "1280x720", needs epg.enabled): for masters whose variants carry no
+  # audio (separate audio renditions), the epg pod's "pin" sidecar serves a reduced master with only
+  # that variant + its default audio at /pin/<id>.m3u8, refreshed every 5 min; Jellyfin uses that URL.
   channels: []
   # Programme guide (XMLTV) from the iptv-org/epg grabber (https://github.com/iptv-org/epg,
   # Unlicense). The project publishes only the moving tag "master": pinned here by digest.

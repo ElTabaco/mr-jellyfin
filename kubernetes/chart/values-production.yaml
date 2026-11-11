@@ -80,6 +80,8 @@ liveTv:
       name: 3sat
       group: ZDF/3sat
       url: "https://zdf-hls-18.akamaized.net/hls/live/2016501/dach/high/master.m3u8"
+      # variants are video-only (audio as separate renditions): served reduced to 720p50 + audio
+      pinResolution: "1280x720"
       epgSite: teleboy.ch
       epgSiteId: "311"
     - id: tagesschau24.de@SD

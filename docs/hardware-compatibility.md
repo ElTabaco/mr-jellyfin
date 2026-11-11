@@ -55,7 +55,7 @@ VAProfileNone                   : VAEntrypointVideoProc
 | AV1 8/10-bit (Profile0) | yes | yes (`av1_vaapi`) | vainfo + ffmpeg (8-bit) |
 | MPEG-2 | **no** | no | not in vainfo; ffmpeg fell back to software (6.5 CPU cores) |
 | VC-1, VP8 | **no** | no | not in vainfo |
-| HDR10 -> SDR tone mapping | **failed** | - | see below |
+| HDR10 -> SDR tone mapping | **yes** (Vulkan/libplacebo) | - | real HDR10 file, see below |
 
 ### Performance (single run each, `-benchmark`, CPU = (utime+stime)/rtime)
 
@@ -87,12 +87,22 @@ load (AV1 encode shows 0-1 %). VCN utilisation needs per-process `drm-engine-*` 
 
 ### Tone mapping (HDR10 -> SDR)
 
-- Vulkan/libplacebo pipeline as used by Jellyfin on AMD (`hwmap=derive_device=vulkan,libplacebo`):
-  `VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT` when mapping the VA-API surface.
-- VA-API `tonemap_vaapi`: "Failed to configure output pad" (the generated test file also lacked
-  complete HDR colour tags).
-- The library has no HDR content (2026-11-11: all H.264 8-bit SDR <= 1080p, one VP8 1080p), so
-  tone mapping stays **off**. Re-test with a real HDR10 file before enabling it.
+Re-test 2026-11-11 with real HDR10 content: **works**.
+
+- Test file: "Sol Levante" (Netflix Open Content, CC BY 4.0), HDR10 ProRes master converted to
+  HEVC Main10 3840x2160 24 fps 25 Mbit/s, BT.2020 / SMPTE ST 2084 (PQ). Jellyfin detects
+  `VideoRange=HDR`, `VideoRangeType=HDR10`. In the library: `movies/Sol Levante (2020)/`.
+- Jellyfin pipeline on AMD: VA-API decode -> `hwmap=derive_device=drm` -> `libplacebo`
+  (`tonemapping=bt.2390`, to BT.709) on Vulkan (RADV) -> `hwmap` back to VA-API -> `scale_vaapi` ->
+  `h264_vaapi`. Everything on the GPU.
+- 4K HDR10 -> 1080p SDR H.264 8 Mbit/s: 166 fps = 6.8x realtime, first segment 1.28 s, 0 errors
+  (without tone mapping: 171 fps, so tone mapping costs ~3 %).
+- Visual check (same frame, ~60 s): without tone mapping the SDR output is washed out (grey blacks,
+  low contrast, pale colours); with tone mapping blacks, contrast and saturation are correct.
+- The Phase 4 failures (`VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT`; `tonemap_vaapi`
+  "Failed to configure output pad") came from a generated test file without complete HDR colour
+  tags, not from the hardware.
+- Dolby Vision profile 5 (no HDR10 base layer) is not tested (no content).
 
 ## Jellyfin settings (applied by `scripts/configure-transcoding.py`)
 
@@ -102,7 +112,7 @@ load (AV1 encode shows 0-1 %). VCN utilisation needs per-process `drm-engine-*` 
 | Hardware decoding | H.264, HEVC, VP9, AV1; 10-bit HEVC + VP9 on | verified above; MPEG-2/VC-1/VP8 decode in software |
 | Hardware encoding | on | verified |
 | Allow HEVC / AV1 encoding | off | H.264 output plays on every client; revisit with client tests |
-| Tone mapping | off | failed, and no HDR content |
+| Tone mapping | **on** (bt.2390, Vulkan/libplacebo) | verified with real HDR10 content (2026-11-11) |
 | Segment deletion | on, keep 720 s (Phase 7) | `/transcode` emptyDir limit 30Gi; exceeding it evicts the pod |
 | Throttling | on, 180 s ahead (Phase 7) | software-decoded sources no longer run at the 6-core limit until the end of the file; measured: pause at ~330 s ahead, pod CPU ~0.02 cores |
 

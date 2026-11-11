@@ -21,6 +21,38 @@ data:
     {{- end }}
     {{- end }}
     </channels>
+  # pin sidecar: one line per channel with pinResolution: <slug> <master url> <resolution>
+  pins.txt: |
+    {{- range .Values.liveTv.channels }}
+    {{- if .pinResolution }}
+    {{ regexReplaceAll "[^a-z0-9]+" (lower (.id | default .name)) "-" }} {{ .url }} {{ .pinResolution }}
+    {{- end }}
+    {{- end }}
+  # Reduce an HLS master to the variant with RESOLUTION=R plus the DEFAULT=YES audio rendition of its
+  # audio group; relative URIs become absolute (B = scheme://host, D = master directory). Exit 1 if the
+  # variant is missing (the previous file stays).
+  pin.awk: |
+    function abs(u) { if (u ~ /^https?:\/\//) return u; if (u ~ /^\//) return B u; return D "/" u }
+    { l[NR] = $0 }
+    END {
+      for (i = 1; i <= NR; i++) if (l[i] ~ /^#EXT-X-STREAM-INF/ && index(l[i], R)) { v = i; break }
+      if (!v) exit 1
+      g = ""
+      if (match(l[v], /AUDIO="[^"]*"/)) g = substr(l[v], RSTART + 7, RLENGTH - 8)
+      print "#EXTM3U"
+      print "#EXT-X-INDEPENDENT-SEGMENTS"
+      for (i = 1; i <= NR; i++) {
+        s = l[i]
+        if (g != "" && s ~ /^#EXT-X-MEDIA:TYPE=AUDIO/ && index(s, "GROUP-ID=\"" g "\"") && s ~ /DEFAULT=YES/) {
+          if (match(s, /URI="[^"]*"/)) s = substr(s, 1, RSTART - 1) "URI=\"" abs(substr(s, RSTART + 5, RLENGTH - 6)) "\"" substr(s, RSTART + RLENGTH)
+          print s
+        }
+      }
+      s = l[v]
+      gsub(/,SUBTITLES="[^"]*"/, "", s)
+      print s
+      for (j = v + 1; j <= NR; j++) if (l[j] != "" && l[j] !~ /^#/) { print abs(l[j]); break }
+    }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -136,6 +168,49 @@ spec:
           volumeMounts:
             - name: public
               mountPath: /epg/public
+        # Channels with pinResolution: their master lists video-only variants with separate audio
+        # renditions, so a variant URL alone has no sound and ffmpeg (Jellyfin) would start on the
+        # first, lowest variant of the full master. Serve a reduced master instead (/pin/<slug>.m3u8).
+        - name: pin
+          image: {{ include "jf.image" $e.image }}
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              mkdir -p /epg/public/pin
+              while true; do
+                while read -r slug url res; do
+                  [ -n "$slug" ] || continue
+                  base=$(echo "$url" | sed -E 's#^(https?://[^/]+).*#\1#')
+                  if wget -q -T 20 -O /tmp/pin-master.m3u8 "$url" \
+                    && awk -v B="$base" -v D="${url%/*}" -v R="RESOLUTION=$res" -f /pin/pin.awk \
+                      /tmp/pin-master.m3u8 > "/epg/public/pin/.$slug.tmp"; then
+                    mv "/epg/public/pin/.$slug.tmp" "/epg/public/pin/$slug.m3u8"
+                  else
+                    echo "pin: $slug: master not fetched or no $res variant; previous file kept"
+                    rm -f "/epg/public/pin/.$slug.tmp"
+                  fi
+                done < /pin/pins.txt
+                sleep 300
+              done
+          securityContext:
+            {{- include "jf.containerSecurityContext" . | nindent 12 }}
+            readOnlyRootFilesystem: true
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 32Mi
+          volumeMounts:
+            - name: public
+              mountPath: /epg/public
+            - name: pin
+              mountPath: /pin
+              readOnly: true
+            - name: pin-tmp
+              mountPath: /tmp
       volumes:
         - name: public
           emptyDir:
@@ -146,6 +221,15 @@ spec:
         - name: channels
           configMap:
             name: {{ $fn }}-epg
+        - name: pin
+          configMap:
+            name: {{ $fn }}-epg
+            items:
+              - {key: pins.txt, path: pins.txt}
+              - {key: pin.awk, path: pin.awk}
+        - name: pin-tmp
+          emptyDir:
+            sizeLimit: 16Mi
 ---
 apiVersion: v1
 kind: Service

@@ -43,7 +43,7 @@ Prometheus-format reference; the cluster Prometheus has no `rule_files` and no A
   JellyfinGuideGrabberDown, JellyfinGPUDevicePluginDown.
 - **Delivery**: contact point `callmebot` (webhook) -> `callmebot-relay` (monitoring namespace,
   stdlib Python) -> CallMeBot. Rules use rule-level routing; the notification policy tree is not
-  touched. Recipient: Christoph via Telegram (default; the recipient question was not answered).
+  touched. Recipient (owner decision 2026-11-11): Konstantin via WhatsApp; test message delivered (HTTP 200).
   Targets live in Secret `monitoring/callmebot-relay` (key `urls`, one URL template per line with
   `{text}`), created out of band. End-to-end test 2026-11-11: a deliberately failing Job
   `mr-do-jellyfin-backup-alerttest` fired JellyfinBackupFailed after ~1.5 min (CallMeBot HTTP 200),
