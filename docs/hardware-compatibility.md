@@ -124,7 +124,50 @@ CPU is measured from the pod cgroup (`cpu.stat`) over 12 s while ffmpeg encodes 
 VP8 (or MPEG-2/VC-1) transcode runs at the 6-core limit until it has encoded ahead. Phase 6 measures
 this with real clients and decides on transcode throttling.
 
-## Capacity
+## Capacity (Phase 6 load test, 2026-11-11)
 
-No capacity is claimed. The four-viewer target (one 4K Direct Play, one 1080p Direct Play, two
-1080p transcodes) is measured in Phase 6 and recorded here with the exact conditions.
+**Measured: four simultaneous viewers - one 4K Direct Play, one 1080p Direct Play, two 1080p ->
+720p hardware transcodes - for 300 s with 0 stalls and 0 ffmpeg errors.** This is the maximum
+tested so far; higher counts were not tested.
+
+Conditions (exactly what was measured, raw result: [loadtest-2026-11-11.json](loadtest-2026-11-11.json)):
+
+- Synthetic clients (`scripts/loadtest/loadtest.py`) on one LAN host (the Hermes host), not real TV
+  apps: no client decoding, no Wi-Fi. Each viewer had its own DeviceId and kept a 30 s buffer like a
+  player; a stall = playback position overtaking the buffer.
+- Media: synthetic test pattern + noise, encoded with VA-API CBR (`scripts/loadtest/gen-media.sh`),
+  10 min each: 4K HEVC Main10 25.2 Mbit/s (mkv), 3 x 1080p25 H.264 High 8.2 Mbit/s (mp4), on the
+  NAS (NFS) in a temporary library (removed after the test).
+- Transcodes: H.264 720p 3 Mbit/s over HLS (forced by bitrate), Jellyfin pipeline
+  `-hwaccel vaapi` -> `scale_vaapi` -> `h264_vaapi`, transcode throttling off (default).
+- Server samples every 2 s inside the pod (`scripts/loadtest/sampler.sh`: cgroup CPU, amdgpu
+  `fdinfo` engine counters of the ffmpeg processes) + Prometheus (node CPU, pod network).
+
+| Viewer | Startup (request -> playable) | Stalls | Delivered |
+|---|---|---|---|
+| 4K Direct Play (25.2 Mbit/s source) | 0.6 s | 0 | 27.6 Mbit/s avg |
+| 1080p Direct Play (8.2 Mbit/s) | 0.45 s | 0 | 9.0 Mbit/s avg |
+| 1080p -> 720p transcode #1 | 1.04 s (first segment 0.82 s, later max 0.33 s) | 0 | 3.5 Mbit/s |
+| 1080p -> 720p transcode #2 | 1.39 s (first segment 1.22 s, later max 0.49 s) | 0 | 3.5 Mbit/s |
+
+| Server metric (test window) | avg | p95 | max |
+|---|---|---|---|
+| Jellyfin pod CPU (cores) | 0.16 | 0.62 | 0.86 |
+| mr2 node CPU (cores of 16) | 0.31 | 0.70 | 0.71 |
+| Jellyfin container memory, working set | - | - | 661 MiB |
+| mr2 node memory, working set | 2.7 GiB | 2.9 GiB | 2.9 GiB |
+| Pod network out | 39.9 Mbit/s | 41.2 Mbit/s | 55.4 Mbit/s |
+| VCN video engine (`drm-engine-enc`, sum of both ffmpeg) while encoding | 0.99 | 1.00 | 1.00 |
+| Shader engine (`drm-engine-compute`, scaling) while encoding | 0.13 | 0.13 | 0.13 |
+| `gpu_busy_percent` (graphics only) | 2.5 % | 13 % | 13 % |
+
+Each transcode ran at 10x realtime (255 fps, 1080p -> 720p) with both at once, so ffmpeg finished
+the 10-minute files in about a minute and then stopped; the VCN engine was saturated only during
+that encode-ahead burst. Implication (estimate, not measured): two concurrent 1080p transcodes use
+about 20 % of the VCN capacity at realtime speed; the 1 GbE links (NAS -> mr2, mr2 -> clients) and
+Wi-Fi of the clients are the more likely limits for many 4K Direct Play streams (25 Mbit/s each).
+
+Known gaps of this test: no real client devices (owner test on browser/Android TV passed in Phase 3),
+no HDR/tone mapping, no software-decoded sources (VP8/MPEG-2/VC-1 use up to 6 CPU cores, Phase 4),
+playback progress reports from the synthetic clients returned HTTP 400 (start/stop worked; streaming
+unaffected).

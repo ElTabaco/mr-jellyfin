@@ -8,7 +8,7 @@
 | 3 Deployment | done | 2026-11-10/11 | approved 2026-11-10; owner playback test OK 2026-11-11 |
 | 4 AMD GPU | done | 2026-11-11 | approved 2026-11-11; PR #3, #4 merged |
 | 5 Online sources / plugins | done | 2026-11-11 | approved 2026-11-11; PRs #5-#8 |
-| 6 Monitoring / four-viewer test | in progress | 2026-11-11 | owner: autonomous work + self-merge for this session |
+| 6 Monitoring / four-viewer test | done | 2026-11-11 | owner: autonomous work + self-merge for this session; PRs #9-#11, observer #32 |
 | 7 Production acceptance | not started | | |
 
 ## Owner decisions (2026-11-10)
@@ -174,6 +174,21 @@ Backup with API key: `BACKUP OK` - API archive `jellyfin-backup-20261111000536.z
   tagesschau24 1280x720 5.9 s, 3sat 640x360 17.9 s (master playlist; variant URL contains a hash,
   stability to be checked before pinning).
 
+## Phase 6 results (2026-11-11)
+
+- jellyfin_exporter sidecar enabled (PR #9) with transcoding/tasks/storage collectors (PR #10);
+  Prometheus target up.
+- mr-do-observer PR #32: Grafana dashboard "Jellyfin", 13 alert rules, contact point `callmebot`
+  + `callmebot-relay`; every PromQL expression was run against the live Prometheus first. Grafana
+  provisioning loaded 13 rules (10 normal at start). End-to-end alert test fired and resolved through
+  CallMeBot (Telegram, HTTP 200). See [monitoring/README.md](../monitoring/README.md).
+- Recipient question (CallMeBot) not answered -> default Christoph/Telegram; change = Secret update.
+- Four-viewer load test (synthetic clients, 300 s): 4K Direct Play + 1080p Direct Play + 2 x 1080p
+  hardware transcodes, 0 stalls, 0 ffmpeg errors, startup 0.45-1.4 s, pod CPU max 0.86 cores, node
+  max 0.71 of 16 cores, network out avg 40 Mbit/s. Details and limits:
+  [hardware-compatibility.md](hardware-compatibility.md#capacity-phase-6-load-test-2026-11-11).
+- Test media and the temporary library were removed afterwards (NAS folder, `/cache` files).
+
 ## Open items
 
 - 3sat starts at 640x360 (master playlist): check over several days whether its variant URL hash is
@@ -190,4 +205,3 @@ Backup with API key: `BACKUP OK` - API archive `jellyfin-backup-20261111000536.z
 - Media on a single USB SSD without a copy; optional NAS-side copy to `/volume1` (RAID 1).
 - `readOnlyRootFilesystem` for the Jellyfin container (not tested yet; stays false).
 - Off-host copy of the backups (mr0 holds both the backups and the monthly archive).
-- Prometheus `rule_files` + CallMeBot routing in mr-do-observer (Phase 6).
