@@ -33,7 +33,10 @@ def main():
     ap.add_argument("--url", default=os.environ.get("JELLYFIN_URL", "http://192.168.0.5:8096"))
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--epg-url", default=os.environ.get("JELLYFIN_EPG_URL", ""),
-                    help="XMLTV URL, e.g. http://mr-do-jellyfin-epg:3000/guide.xml")
+                    help="XMLTV URL, e.g. http://mr-do-jellyfin-epg:3000/guide-clean.xml")
+    ap.add_argument("--recreate-tuner", action="store_true",
+                    help="delete and re-add the M3U tuner: needed after channel URL changes, because "
+                         "Jellyfin keys M3U channels by URL and keeps the old ones as duplicates")
     args = ap.parse_args()
     key = os.environ.get("JELLYFIN_API_KEY") or sys.stdin.readline().strip()
     if not key:
@@ -50,6 +53,11 @@ def main():
     cfg = call("GET", "/System/Configuration/livetv") or {}
     hosts = cfg.get("TunerHosts") or []
     mine = [h for h in hosts if h.get("Type") == "m3u" and h.get("Url") == PLAYLIST]
+    if mine and args.recreate_tuner and not args.dry_run:
+        for h in mine:
+            call("DELETE", f"/LiveTv/TunerHosts?id={h['Id']}")
+            print(f"tuner deleted: {h['Id']}")
+        mine = []
     if mine:
         print(f"tuner exists: {mine[0].get('FriendlyName')} ({mine[0].get('Id')})")
     elif args.dry_run:
@@ -59,6 +67,10 @@ def main():
         print(f"tuner added: {added.get('Id')}")
     if args.epg_url:
         providers = cfg.get("ListingProviders") or []
+        for p in providers:  # one XMLTV provider: replace one with another path
+            if p.get("Type") == "xmltv" and p.get("Path") != args.epg_url and not args.dry_run:
+                call("DELETE", f"/LiveTv/ListingProviders?id={p['Id']}")
+                print(f"XMLTV provider removed: {p.get('Path')}")
         if any(p.get("Type") == "xmltv" and p.get("Path") == args.epg_url for p in providers):
             print(f"XMLTV provider exists: {args.epg_url}")
         elif args.dry_run:

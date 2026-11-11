@@ -108,10 +108,11 @@ deploy, register the tuner once from a LAN host, then check the streams:
 
 ```console
 python3 /opt/data/bin/hermes_secrets.py get JELLYFIN_API_KEY | \
-  scripts/configure-livetv.py --epg-url http://mr-do-jellyfin-epg:3000/guide.xml
+  scripts/configure-livetv.py --epg-url http://mr-do-jellyfin-epg:3000/guide-clean.xml
 scripts/check-livetv.py      # on a LAN host (geo-restriction depends on the connection)
 ```
 
 Adding a channel: test it with `scripts/check-livetv.py --m3u <file>`, check the source rules in
 [plugins-and-sources.md](plugins-and-sources.md), add it to `liveTv.channels` (PR), wait ~1 min after
-the Argo CD sync and run the guide refresh (Dashboard > Live TV > Refresh guide data).
+the Argo CD sync and run `configure-livetv.py --recreate-tuner --epg-url ...` (Jellyfin keys M3U
+channels by URL: a changed URL otherwise leaves the old channel as a duplicate).
