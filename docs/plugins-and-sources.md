@@ -54,8 +54,23 @@ playlist -> highest variant -> newest segment (`scripts/check-livetv.py`), 2026-
 Geo-blocking is decided per programme by the broadcasters: a channel that works now can show a
 "not available in your country" slate for single programmes (sports, films).
 
-Guide data (EPG): none yet. Jellyfin shows the channels without programme information. Options:
-XMLTV from the iptv-org EPG grabber (self-hosted CronJob) or a third-party XMLTV feed; owner decision.
+Feed choice: from Switzerland the ARD "de" playlists redirect to the international ("int") feeds;
+the chart uses the int feeds directly and the highest-quality variant playlist where its name is
+stable. With a master playlist Jellyfin's ffmpeg started with the first (lowest) variant: Das Erste
+and KiKA arrived as 640x360 with 17-22 s until the first segment (test 2026-11-11, remux, 0 errors).
+
+Programme guide (owner decision 2026-11-11: self-hosted): iptv-org/epg grabber (Unlicense, active,
+image `ghcr.io/iptv-org/epg:master` pinned by digest) as Deployment `mr-do-jellyfin-epg`, daily at
+04:30, 3 days, source teleboy.ch listings for all 11 channels; served in-cluster at
+`http://mr-do-jellyfin-epg:3000/guide.xml` (NetworkPolicy: only the Jellyfin pod). Test run as uid
+1000 under Pod Security restricted: 11 channels, 1350 programmes in 1 s after loading the channel
+database; needs about 400 MB Node.js heap (OOM at a 768Mi limit, so 2Gi limit / 1536 MB heap).
+
+Zattoo (owner request 2026-11-11): **not supported.** No M3U/IPTV/API for third-party players; access
+is through Zattoo's own apps. No Jellyfin plugin exists (official repository and GitHub search); the
+existing tools (Kodi pvr.zattoo, zattoo_tvh (discontinued), wakdos-streamhub) log in with the
+customer account and use Zattoo's private app API - not an authorized integration. Use the Zattoo
+app on the TV.
 
 Parental control: Live TV channels have no rating, so `alexander` (unrated Live TV blocked) does
 not see any channel, including KiKA.
