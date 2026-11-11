@@ -149,6 +149,12 @@ spec:
         - name: exporter
           image: {{ include "jf.image" .Values.exporter.image }}
           imagePullPolicy: IfNotPresent
+          {{- with .Values.exporter.extraCollectors }}
+          args:
+            {{- range . }}
+            - --collector.{{ . }}
+            {{- end }}
+          {{- end }}
           env:
             - name: JELLYFIN_ADDRESS
               value: "http://127.0.0.1:8096"

@@ -177,6 +177,9 @@ exporter:
     tag: v1.6.0
     digest: "sha256:d1985ef9ad50b8924e74ee1dd12accd64936a65150375a8e190c2293b6e2678c"
   port: 9594
+  # -- Collectors to enable in addition to the defaults (media, playing, system, users).
+  # Available (v1.6.0): transcoding, activity, tasks, storage.
+  extraCollectors: []
   # -- Secret (in the release namespace) holding the Jellyfin API key.
   apiKeySecret: mr-do-jellyfin-api-key
   apiKeySecretKey: api-key

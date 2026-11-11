@@ -157,6 +157,8 @@ Defaults in `kubernetes/chart/values.yaml`; mr home lab overrides in `values-pro
 | `gpu.resourceName` | `devic.es/dri-render` | - | device plugin resource |
 | `gpu.renderGroupId` | `992` | `992` | render GID on the GPU node |
 | `gpu.vaapiDevice` | `/dev/dri/renderD128` | - | VA-API device for the Jellyfin dashboard |
+| `exporter.enabled` | `false` | `true` | jellyfin_exporter sidecar (port `exporter.port` 9594, scrape annotation moves there) |
+| `exporter.extraCollectors` | `[]` | `[transcoding, tasks, storage]` | `--collector.<name>` flags in addition to media, playing, system, users |
 | `liveTv.enabled` | `false` | `true` | render the channel list ConfigMap and mount it |
 | `liveTv.mountPath` | `/livetv` | - | mount path; Jellyfin M3U tuner file `/livetv/channels.m3u` |
 | `liveTv.channels` | `[]` | 11 channels | `id` (tvg-id), `name`, `group`, `url` (HLS), `epgSite`, `epgSiteId`, `epgLang` |
