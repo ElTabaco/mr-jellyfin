@@ -95,3 +95,22 @@ Results and the codec matrix: [hardware-compatibility.md](hardware-compatibility
 
 Configure Dashboard > Playback > Transcoding with the verified codecs only
 ([hardware-compatibility.md](hardware-compatibility.md)).
+
+## 7. Plugins and live TV (Phase 5)
+
+Plugins come only from the official repository (`https://repo.jellyfin.org/files/plugin/manifest.json`,
+checked for a 12.x `targetAbi`); install in Dashboard > Plugins > Catalog or through the API, then
+restart the pod (`kubectl -n mr-do-jellyfin delete pod -l app=mr-do-jellyfin`). Plugin files live in
+`/config/plugins` (persistent, included in the backup). Installed: Playback Reporting 19.0.0.0.
+
+Live TV channels are Git-managed in `values-production.yaml` (`liveTv.channels`). After the first
+deploy, register the tuner once from a LAN host, then check the streams:
+
+```console
+python3 /opt/data/bin/hermes_secrets.py get JELLYFIN_API_KEY | scripts/configure-livetv.py
+scripts/check-livetv.py      # on a LAN host (geo-restriction depends on the connection)
+```
+
+Adding a channel: test it with `scripts/check-livetv.py --m3u <file>`, check the source rules in
+[plugins-and-sources.md](plugins-and-sources.md), add it to `liveTv.channels` (PR), wait ~1 min after
+the Argo CD sync and run the guide refresh (Dashboard > Live TV > Refresh guide data).

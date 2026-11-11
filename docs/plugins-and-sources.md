@@ -1,7 +1,64 @@
 # Online sources and plugins
 
-Status: Phase 1 inventory. Every candidate is verified individually in Phase 5 (technical test
-**and** terms of use) before it is configured. Nothing here is promised to work.
+Status: Phase 5 (2026-11-11): plugins evaluated, Playback Reporting installed, 11 live TV channels
+tested and configured. Results below; tests were run from the home connection in Switzerland.
+
+## Phase 5 results
+
+### Plugins (official repository, checked 2026-11-11 against Jellyfin 12.4.0)
+
+36 plugins in the manifest; 32 have a version with `targetAbi` 12.0-12.4 (AniSearch, Bookshelf, Folio:
+10.x only, not installable). Bundled and active: TMDb, OMDb, MusicBrainz, AudioDB, ListenBrainz,
+Studio Images (12.4.0.0).
+
+| Plugin | Version / ABI | Decision |
+|---|---|---|
+| Playback Reporting | 19.0.0.0 / 12.0.0.0 | **installed** (owner choice): playback statistics, used in Phase 6 |
+| Fanart, Open Subtitles, AniList | 15 / 25 / 15, ABI 12.x | offered, not chosen (Open Subtitles needs an opensubtitles.com account) |
+| TheTVDB, TVmaze, AniDB, Kitsu | ABI 12.x | not needed: TMDb matches the library |
+| TVHeadend, NextPVR | ABI 12.x | only with tuner hardware/backend; none present |
+| DLNA | 14.0.0.0 / 12.1.0.0 | not usable: SSDP discovery needs multicast on the LAN, the pod is on the cluster network |
+| LDAP, Webhook, Session Cleaner, Transcode Killer, Reports, Trakt, Simkl, books/music extras | ABI 12.x | not needed now |
+
+No channel plugin for a remote catalogue exists in the official repository; no custom plugin is
+needed for the chosen sources (the built-in M3U tuner covers them).
+
+### Live TV (built-in M3U tuner, channels in `values-production.yaml`)
+
+Rule applied: only streams on the broadcaster's own CDN, no token, no DRM, no re-broadcaster, and
+reachable from this connection without circumvention (no VPN/proxy). Test per channel: master
+playlist -> highest variant -> newest segment (`scripts/check-livetv.py`), 2026-11-11 from mr0.
+
+| Channel | Source host | Result | Configured |
+|---|---|---|---|
+| Das Erste (international feed) | daserste-live.ard-mcdn.de | OK 1080p | yes |
+| 3sat (DACH feed) | zdf-hls-18.akamaized.net | OK 720p | yes |
+| tagesschau24 | tagesschau.akamaized.net | OK 720p | yes |
+| ARD alpha | mcdn.br.de | OK 1080p | yes |
+| KiKA (worldwide feed) | kikahls.akamaized.net | OK 1080p | yes |
+| BR Fernsehen Süd | mcdn.br.de | OK 1080p | yes |
+| WDR Fernsehen | wdr-live.ard-mcdn.de | OK 1080p | yes |
+| NDR Fernsehen Hamburg | mcdn.ndr.de | OK 1080p | yes |
+| hr-fernsehen | hrhls.akamaized.net | OK 720p | yes |
+| SR Fernsehen (Saarland, not Swiss SRF) | srfs.akamaized.net | OK 720p | yes |
+| ORF III | orf3.mdn.ors.at | OK | yes |
+| ZDF, ZDFneo, ZDFinfo, phoenix, arte (de) | ZDF/arte CDN | 403: Germany only | no |
+| SWR, MDR, rbb | own CDN | 403: Germany only | no |
+| ORF 2 | ors.at | 403: Austria only | no |
+| ORF 1 | `test02.mdn.ors.at` (test host) | answers, but a test endpoint | no |
+| RTL, VOX, ProSieben, SAT.1, kabel eins | only re-broadcasters (antik.sk, hopslan, raw IPs) | no own free stream | **no (unlicensed)** |
+| SRF 1, SRF zwei, SRF info, RTS, RSI | srgssr Akamai | needs a per-session token from Play SRF | no (needs an ISP IPTV offer, e.g. Init7 TV7, or a DVB-C tuner) |
+| Swiss regional (Canal 9, Canal Alpha, Léman Bleu, Rhône TV, Carac 1-5, Max TV, TeleTicino, Meteonews, Radio 3i) | own Infomaniak/CDN accounts | OK (15 streams) | not chosen by the owner |
+| TeleZüri, Tele M1, TVM3, RTS Info, Couleur 3 | Kaltura/Akamai | 502/404/403 | no |
+
+Geo-blocking is decided per programme by the broadcasters: a channel that works now can show a
+"not available in your country" slate for single programmes (sports, films).
+
+Guide data (EPG): none yet. Jellyfin shows the channels without programme information. Options:
+XMLTV from the iptv-org EPG grabber (self-hosted CronJob) or a third-party XMLTV feed; owner decision.
+
+Parental control: Live TV channels have no rating, so `alexander` (unrated Live TV blocked) does
+not see any channel, including KiKA.
 
 ## Three different things
 

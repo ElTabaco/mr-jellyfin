@@ -129,6 +129,16 @@ preflight:
   # -- First boot only: write config/encoding.xml with TranscodingTempPath=/transcode if absent.
   seedTranscodePath: true
 
+# Live TV: channels rendered into a ConfigMap and mounted read-only at <mountPath>/channels.m3u.
+# Jellyfin's built-in M3U tuner reads this file (scripts/configure-livetv.py registers it). Channel
+# changes reach the pod without a restart (ConfigMap volume refresh, about 1 min); then refresh the
+# guide in Jellyfin. Only streams the broadcaster publishes itself (docs/plugins-and-sources.md).
+liveTv:
+  enabled: false
+  mountPath: /livetv
+  # -- Channels: id (tvg-id, used for guide matching), name, group (group-title), url (HLS).
+  channels: []
+
 metrics:
   # -- Add prometheus.io/scrape annotations (existing annotation-based Prometheus job).
   scrape: true

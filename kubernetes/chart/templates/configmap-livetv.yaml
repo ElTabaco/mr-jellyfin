@@ -1,0 +1,18 @@
+{{- if .Values.liveTv.enabled }}
+{{- $fn := include "jf.fullname" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fn }}-livetv
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jf.labels" . | nindent 4 }}
+data:
+  channels.m3u: |
+    #EXTM3U
+    {{- range .Values.liveTv.channels }}
+    {{- if or (not .name) (not .url) }}{{ fail "liveTv.channels: every channel needs name and url" }}{{ end }}
+    #EXTINF:-1 tvg-id="{{ .id | default "" }}" tvg-name="{{ .name }}" group-title="{{ .group | default "TV" }}",{{ .name }}
+    {{ .url }}
+    {{- end }}
+{{- end }}

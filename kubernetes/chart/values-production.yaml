@@ -50,3 +50,54 @@ preflight:
     - documentaries
     - home-videos
     - music
+
+# Phase 5 (2026-11-11): only streams on the broadcaster's own CDN that play from this connection
+# (Switzerland) without tokens or DRM, tested master playlist -> variant -> segment
+# (docs/plugins-and-sources.md). Das Erste uses the international feed (the "de" feed is for Germany).
+liveTv:
+  enabled: true
+  channels:
+    - id: DasErste.de@HD
+      name: Das Erste
+      group: ARD
+      url: "https://daserste-live.ard-mcdn.de/daserste/live/hls/int/master.m3u8"
+    - id: 3sat.de@SD
+      name: 3sat
+      group: ZDF/3sat
+      url: "https://zdf-hls-18.akamaized.net/hls/live/2016501/dach/high/master.m3u8"
+    - id: tagesschau24.de@SD
+      name: tagesschau24
+      group: ARD
+      url: "https://tagesschau.akamaized.net/hls/live/2020115/tagesschau/tagesschau_1/master.m3u8"
+    - id: ARDalpha.de@SD
+      name: ARD alpha
+      group: ARD
+      url: "https://mcdn.br.de/br/fs/ard_alpha/hls/de/master.m3u8"
+    - id: KiKA.de@SD
+      name: KiKA
+      group: ARD/ZDF
+      url: "https://kikahls.akamaized.net/hls/live/2022690/livetvkika_ww/master.m3u8"
+    - id: BRFernsehen.de@Sud
+      name: BR Fernsehen Süd
+      group: ARD Dritte
+      url: "https://mcdn.br.de/br/fs/bfs_sued/hls/de/master.m3u8"
+    - id: WDRFernsehen.de@Koln
+      name: WDR Fernsehen
+      group: ARD Dritte
+      url: "https://wdr-live.ard-mcdn.de/wdr/live/hls/de/master.m3u8"
+    - id: NDRFernsehen.de@Hamburg
+      name: NDR Fernsehen Hamburg
+      group: ARD Dritte
+      url: "https://mcdn.ndr.de/ndr/hls/ndr_fs/ndr_hh/master.m3u8"
+    - id: hrfernsehen.de@SD
+      name: hr-fernsehen
+      group: ARD Dritte
+      url: "https://hrhls.akamaized.net/hls/live/2024525/hrhls/index.m3u8"
+    - id: SRFernsehen.de@SD
+      name: SR Fernsehen (Saarland)
+      group: ARD Dritte
+      url: "https://srfs.akamaized.net/hls/live/689649/srfsgeo/index.m3u8"
+    - id: ORFIII.at@HD
+      name: ORF III
+      group: ORF
+      url: "https://orf3.mdn.ors.at/orf/orf3/qxa/manifest.m3u8"
