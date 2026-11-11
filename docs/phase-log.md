@@ -254,7 +254,12 @@ only runtime mount points and an empty `/var/tmp`. `/var/tmp` is now mounted fro
 `securityContext.readOnlyRootFilesystem` defaults to `true`. Pre-test: Jellyfin 12.4 started read-only
 from the latest backup in an isolated namespace (startup 3.6 s, configuration identical).
 
+Load-test progress reports (HTTP 400), root cause 2026-11-11: Jellyfin log
+`ArgumentOutOfRangeException at Jellyfin.Plugin.PlaybackReporting.EventMonitorEntryPoint.SessionManager_PlaybackProgress`;
+the plugin builds its key from `e.Users[0]`, which is empty for API-key sessions (no user). Not a
+server or client problem: progress from a real browser session was processed normally.
+`scripts/loadtest/loadtest.py` now sends only start/stop (sessions still visible in Jellyfin).
+
 ## Open items
 
-- Progress reports (`/Sessions/Playing/Progress`) from the synthetic load-test clients returned 400
-  (test tool only; real clients unaffected).
+- Zattoo integration: separate session (brief in the vault, `Projects/mr-jellyfin/zattoo-session-brief.md`).

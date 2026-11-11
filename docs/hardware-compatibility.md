@@ -182,4 +182,6 @@ Wi-Fi of the clients are the more likely limits for many 4K Direct Play streams 
 Known gaps of this test: no real client devices (owner test on browser/Android TV passed in Phase 3),
 no HDR/tone mapping, no software-decoded sources (VP8/MPEG-2/VC-1 use up to 6 CPU cores, Phase 4),
 playback progress reports from the synthetic clients returned HTTP 400 (start/stop worked; streaming
-unaffected).
+unaffected). Cause, found later: the clients authenticate with the server API key (no user), and the
+Playback Reporting plugin 19.0 indexes `e.Users[0]` in its progress handler; the tool no longer sends
+progress reports. Real clients log in as a user and are not affected (verified in the server log).

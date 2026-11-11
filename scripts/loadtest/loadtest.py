@@ -8,6 +8,11 @@ Viewers (each with its own DeviceId, reported to Jellyfin as a playing session):
 
 Per viewer: startup latency (request -> playback could start), stalls (playback position overtakes
 the buffer), stall time, average delivered rate. API key from the Hermes store, never printed.
+
+Only start/stop are reported to Jellyfin (so the viewers appear as playing sessions). Progress
+reports are not sent: an API-key session has no user, and the Playback Reporting plugin (19.0)
+indexes e.Users[0] in its synchronous progress handler -> ArgumentOutOfRangeException -> HTTP 400.
+Real clients log in as a user and are not affected.
 Usage: loadtest.py <duration_s> <json-out>
 """
 import json
@@ -52,7 +57,7 @@ class Viewer(threading.Thread):
         body = {"ItemId": self.item["Id"], "PlaySessionId": ps, "MediaSourceId": self.item["Id"],
                 "PositionTicks": int(pos * 1e7), "PlayMethod": method, "CanSeek": True, "IsPaused": False}
         try:
-            call({"start": "/Sessions/Playing", "progress": "/Sessions/Playing/Progress",
+            call({"start": "/Sessions/Playing",
                   "stop": "/Sessions/Playing/Stopped"}[kind], self.dev, "POST", body)
         except Exception as exc:
             self.res["errors"].append(f"report {kind}: {exc}")
@@ -81,7 +86,6 @@ class Viewer(threading.Thread):
         req = urllib.request.Request(url, headers=hdr(self.dev))
         nbytes, play_start, stalls, stall_time, stalled_since = 0, None, 0, 0.0, None
         self.report("start", 0, ps, "DirectPlay")
-        last_rep = time.time()
         with urllib.request.urlopen(req, timeout=60) as r:
             while time.time() - t0 < DUR:
                 now = time.time()
@@ -102,9 +106,6 @@ class Viewer(threading.Thread):
                 if not chunk:
                     break
                 nbytes += len(chunk)
-                if now - last_rep > 10 and play_start:
-                    self.report("progress", played, ps, "DirectPlay")
-                    last_rep = now
         self.report("stop", (time.time() - (play_start or t0)), ps, "DirectPlay")
         self.finish(t0, play_start, stalls, stall_time, nbytes, nbytes / bps)
 
@@ -125,7 +126,7 @@ class Viewer(threading.Thread):
                 segs.append(next(x for x in lines[i + 1:] if x and not x.startswith("#")))
         nbytes, buffered, play_start, stalls, stall_time, stalled_since = 0, 0.0, None, 0, 0.0, None
         seg_times = []
-        idx, last_rep = 0, time.time()
+        idx = 0
         while time.time() - t0 < DUR and idx < len(segs):
             now = time.time()
             played = (now - play_start - stall_time) if play_start else 0
@@ -149,9 +150,6 @@ class Viewer(threading.Thread):
                 stalled_since = None
             elif play_start and stalled_since is None and played > buffered:
                 stalls, stalled_since = stalls + 1, now
-            if now - last_rep > 10 and play_start:
-                self.report("progress", played, ps, "Transcode")
-                last_rep = now
         self.report("stop", buffered, ps, "Transcode")
         try:
             call(f"/Videos/ActiveEncodings?deviceId={self.dev}&playSessionId={ps}", self.dev, "DELETE")
