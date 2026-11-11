@@ -53,51 +53,78 @@ preflight:
 
 # Phase 5 (2026-11-11): only streams on the broadcaster's own CDN that play from this connection
 # (Switzerland) without tokens or DRM, tested master playlist -> variant -> segment
-# (docs/plugins-and-sources.md). Das Erste uses the international feed (the "de" feed is for Germany).
+# (docs/plugins-and-sources.md). International ("int") feeds; the URL is the highest-quality variant
+# playlist where its name is stable (ffmpeg would otherwise start with the first, lowest variant);
+# 3sat and ORF III keep the master playlist (hashed / redirected variant URLs).
 liveTv:
   enabled: true
+  # Programme guide: teleboy.ch listings via the iptv-org/epg grabber (owner decision 2026-11-11).
+  epg:
+    enabled: true
   channels:
     - id: DasErste.de@HD
       name: Das Erste
       group: ARD
-      url: "https://daserste-live.ard-mcdn.de/daserste/live/hls/int/master.m3u8"
+      url: "https://daserste-live.ard-mcdn.de/daserste/live/hls/int/master1080p5000.m3u8"
+      epgSite: teleboy.ch
+      epgSiteId: "309"
     - id: 3sat.de@SD
       name: 3sat
       group: ZDF/3sat
       url: "https://zdf-hls-18.akamaized.net/hls/live/2016501/dach/high/master.m3u8"
+      epgSite: teleboy.ch
+      epgSiteId: "311"
     - id: tagesschau24.de@SD
       name: tagesschau24
       group: ARD
-      url: "https://tagesschau.akamaized.net/hls/live/2020115/tagesschau/tagesschau_1/master.m3u8"
+      url: "https://tagesschau.akamaized.net/hls/live/2020115/tagesschau/tagesschau_1/master-720p-3328.m3u8"
+      epgSite: teleboy.ch
+      epgSiteId: "503"
     - id: ARDalpha.de@SD
       name: ARD alpha
       group: ARD
-      url: "https://mcdn.br.de/br/fs/ard_alpha/hls/de/master.m3u8"
+      url: "https://mcdn.br.de/br/fs/ard_alpha/hls/int/master1080p5000.m3u8"
+      epgSite: teleboy.ch
+      epgSiteId: "40"
     - id: KiKA.de@SD
       name: KiKA
       group: ARD/ZDF
-      url: "https://kikahls.akamaized.net/hls/live/2022690/livetvkika_ww/master.m3u8"
+      url: "https://kikahls.akamaized.net/hls/live/2022690/livetvkika_ww/master-1080p-5000.m3u8"
+      epgSite: teleboy.ch
+      epgSiteId: "343"
     - id: BRFernsehen.de@Sud
       name: BR Fernsehen Süd
       group: ARD Dritte
-      url: "https://mcdn.br.de/br/fs/bfs_sued/hls/de/master.m3u8"
+      url: "https://mcdn.br.de/br/fs/bfs_sued/hls/int/master1080p5000.m3u8"
+      epgSite: teleboy.ch
+      epgSiteId: "336"
     - id: WDRFernsehen.de@Koln
       name: WDR Fernsehen
       group: ARD Dritte
-      url: "https://wdr-live.ard-mcdn.de/wdr/live/hls/de/master.m3u8"
+      url: "https://wdr-live.ard-mcdn.de/wdr/live/hls/int/master-1080p-5000.m3u8"
+      epgSite: teleboy.ch
+      epgSiteId: "338"
     - id: NDRFernsehen.de@Hamburg
-      name: NDR Fernsehen Hamburg
+      name: NDR Fernsehen
       group: ARD Dritte
-      url: "https://mcdn.ndr.de/ndr/hls/ndr_fs/ndr_hh/master.m3u8"
+      url: "https://ndrint.akamaized.net/hls/live/2020766/ndr_int/master-1080p-5000.m3u8"
+      epgSite: teleboy.ch
+      epgSiteId: "337"
     - id: hrfernsehen.de@SD
       name: hr-fernsehen
       group: ARD Dritte
-      url: "https://hrhls.akamaized.net/hls/live/2024525/hrhls/index.m3u8"
+      url: "https://hrhls.akamaized.net/hls/live/2024525/hrhls/master-720p-3200.m3u8"
+      epgSite: teleboy.ch
+      epgSiteId: "444"
     - id: SRFernsehen.de@SD
       name: SR Fernsehen (Saarland)
       group: ARD Dritte
-      url: "https://srfs.akamaized.net/hls/live/689649/srfsgeo/index.m3u8"
+      url: "https://srfs.akamaized.net/hls/live/689649/srfsgeo/master-720p-3328.m3u8"
+      epgSite: teleboy.ch
+      epgSiteId: "501"
     - id: ORFIII.at@HD
       name: ORF III
       group: ORF
       url: "https://orf3.mdn.ors.at/orf/orf3/qxa/manifest.m3u8"
+      epgSite: teleboy.ch
+      epgSiteId: "170"

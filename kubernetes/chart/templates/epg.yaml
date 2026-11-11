@@ -1,0 +1,163 @@
+{{- if and .Values.liveTv.enabled .Values.liveTv.epg.enabled }}
+{{- $fn := include "jf.fullname" . -}}
+{{- $e := .Values.liveTv.epg -}}
+# Programme guide: iptv-org/epg grabber (scheduled inside the container) + static file server.
+# Jellyfin reads http://<release>-epg:<port>/guide.xml as XMLTV listings provider
+# (scripts/configure-livetv.py --epg-url). Channel ids = liveTv.channels[].id (M3U tvg-id).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fn }}-epg
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jf.labels" . | nindent 4 }}
+data:
+  channels.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <channels>
+    {{- range .Values.liveTv.channels }}
+    {{- if and .epgSite .epgSiteId }}
+      <channel site="{{ .epgSite }}" lang="{{ .epgLang | default "de" }}" xmltv_id="{{ .id }}" site_id="{{ .epgSiteId }}">{{ .name }}</channel>
+    {{- end }}
+    {{- end }}
+    </channels>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fn }}-epg
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jf.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ $fn }}-epg
+      app.kubernetes.io/name: epg
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $fn }}-epg
+        app.kubernetes.io/name: epg
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: mr-do-jellyfin
+      annotations:
+        # subPath mounts do not follow ConfigMap updates: roll the pod when the channel list changes.
+        checksum/channels: {{ toJson .Values.liveTv.channels | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        # uid/gid 1000 = user "node" in the node:alpine based image.
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: epg
+          image: {{ include "jf.image" $e.image }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: HOME
+              value: /tmp
+            - name: TZ
+              value: {{ .Values.timeZone | quote }}
+            - name: CRON_SCHEDULE
+              value: {{ $e.schedule | quote }}
+            - name: RUN_AT_STARTUP
+              value: "true"
+            - name: DAYS
+              value: {{ $e.days | quote }}
+            - name: MAX_CONNECTIONS
+              value: {{ $e.maxConnections | quote }}
+            # The grabber loads the iptv-org channel database (~400 MB heap); node's default heap
+            # limit derived from the container limit is too small (OOM at 768Mi).
+            - name: NODE_OPTIONS
+              value: {{ printf "--max-old-space-size=%d" (int $e.nodeHeapMb) | quote }}
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 30
+          securityContext:
+            {{- include "jf.containerSecurityContext" . | nindent 12 }}
+            readOnlyRootFilesystem: true
+          resources:
+            {{- toYaml $e.resources | nindent 12 }}
+          volumeMounts:
+            - name: public
+              mountPath: /epg/public
+            - name: channels
+              mountPath: /epg/public/channels.xml
+              subPath: channels.xml
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: public
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 512Mi
+        - name: channels
+          configMap:
+            name: {{ $fn }}-epg
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fn }}-epg
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jf.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ $fn }}-epg
+    app.kubernetes.io/name: epg
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: {{ $e.port }}
+      targetPort: http
+      protocol: TCP
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fn }}-epg
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jf.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $fn }}-epg
+  policyTypes:
+    - Ingress
+  ingress:
+    # Only Jellyfin reads the guide.
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "jf.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 3000
+{{- end }}
+{{- end }}

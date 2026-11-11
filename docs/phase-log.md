@@ -159,6 +159,12 @@ Backup with API key: `BACKUP OK` - API archive `jellyfin-backup-20261111000536.z
 - Chart: `liveTv` values, ConfigMap `mr-do-jellyfin-livetv` mounted at `/livetv` (read-only).
 - Scripts: `configure-livetv.py` (M3U tuner + guide refresh), `check-livetv.py` (availability);
   check from mr0: 11/11 OK.
+- After PR #5: Jellyfin restarted with `/livetv/channels.m3u`; `configure-livetv.py` added the M3U tuner;
+  11 channels in Jellyfin. Playback through the server (HLS remux, 0 ffmpeg errors): Das Erste and
+  KiKA 640x360 after 22 s / 18 s, ORF III 960x540 after 5 s -> variant playlists (PR #6).
+- Owner: programme guide yes (self-hosted grabber); alexander keeps Live TV blocked; Zattoo requested
+  -> not possible (no authorized interface, no plugin), see plugins-and-sources.md.
+- Guide grabber tested in a temporary restricted namespace (removed): 1350 programmes for 11 channels.
 
 ## Open items
 

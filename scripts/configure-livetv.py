@@ -5,6 +5,8 @@ The playlist is the ConfigMap file mounted in the pod (values: liveTv.mountPath 
 Usage (from a LAN host; key never on argv):
     JELLYFIN_API_KEY=... scripts/configure-livetv.py [--url http://192.168.0.5:8096] [--dry-run]
     or pipe the key on stdin when the env var is unset.
+With --epg-url the XMLTV guide (chart liveTv.epg, in-cluster service) is registered as listings
+provider for all tuners; channels match by M3U tvg-id = XMLTV channel id.
 """
 import argparse
 import json
@@ -30,6 +32,8 @@ def main():
     ap = argparse.ArgumentParser(description="Register the Git-managed M3U channel list in Jellyfin.")
     ap.add_argument("--url", default=os.environ.get("JELLYFIN_URL", "http://192.168.0.5:8096"))
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--epg-url", default=os.environ.get("JELLYFIN_EPG_URL", ""),
+                    help="XMLTV URL, e.g. http://mr-do-jellyfin-epg:3000/guide.xml")
     args = ap.parse_args()
     key = os.environ.get("JELLYFIN_API_KEY") or sys.stdin.readline().strip()
     if not key:
@@ -53,6 +57,16 @@ def main():
     else:
         added = call("POST", "/LiveTv/TunerHosts", TUNER) or {}
         print(f"tuner added: {added.get('Id')}")
+    if args.epg_url:
+        providers = cfg.get("ListingProviders") or []
+        if any(p.get("Type") == "xmltv" and p.get("Path") == args.epg_url for p in providers):
+            print(f"XMLTV provider exists: {args.epg_url}")
+        elif args.dry_run:
+            print(f"would add XMLTV provider {args.epg_url}")
+        else:
+            added = call("POST", "/LiveTv/ListingProviders", {"Type": "xmltv", "Path": args.epg_url,
+                                                              "EnableAllTuners": True}) or {}
+            print(f"XMLTV provider added: {added.get('Id')}")
     if args.dry_run:
         return
     task = next(t for t in call("GET", "/ScheduledTasks?isHidden=false") or [] if t.get("Key") == "RefreshGuide")
@@ -68,7 +82,8 @@ def main():
     ch = call("GET", "/LiveTv/Channels?limit=500") or {}
     print(f"channels in Jellyfin: {ch.get('TotalRecordCount')}")
     for c in ch.get("Items", []):
-        print(f"  {c.get('ChannelNumber', ''):>4} {c['Name']}")
+        prog = call("GET", f"/LiveTv/Programs?channelIds={c['Id']}&limit=1&hasAired=false") or {}
+        print(f"  {c['Name']:28s} upcoming programmes: {prog.get('TotalRecordCount', 0)}")
 
 
 if __name__ == "__main__":

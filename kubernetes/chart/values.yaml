@@ -136,8 +136,33 @@ preflight:
 liveTv:
   enabled: false
   mountPath: /livetv
-  # -- Channels: id (tvg-id, used for guide matching), name, group (group-title), url (HLS).
+  # -- Channels: id (tvg-id = XMLTV channel id), name, group (group-title), url (HLS); optional
+  # epgSite + epgSiteId (+ epgLang, default de) = iptv-org/epg source for the programme guide.
   channels: []
+  # Programme guide (XMLTV) from the iptv-org/epg grabber (https://github.com/iptv-org/epg,
+  # Unlicense). The project publishes only the moving tag "master": pinned here by digest.
+  epg:
+    enabled: false
+    image:
+      repository: ghcr.io/iptv-org/epg
+      tag: master
+      digest: "sha256:bac999d7d651bd50abb1ced4829bfbdc5846018fab1b254e2ab617a8299a9ebe"
+    # -- Grab schedule (cron, container time zone = timeZone).
+    schedule: "30 4 * * *"
+    # -- Days of guide data to fetch.
+    days: 3
+    # -- Parallel requests to the guide source.
+    maxConnections: 2
+    # -- Node.js heap limit in MiB (must stay below the memory limit).
+    nodeHeapMb: 1536
+    port: 3000
+    resources:
+      requests:
+        cpu: 20m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 2Gi
 
 metrics:
   # -- Add prometheus.io/scrape annotations (existing annotation-based Prometheus job).

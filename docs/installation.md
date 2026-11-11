@@ -107,7 +107,8 @@ Live TV channels are Git-managed in `values-production.yaml` (`liveTv.channels`)
 deploy, register the tuner once from a LAN host, then check the streams:
 
 ```console
-python3 /opt/data/bin/hermes_secrets.py get JELLYFIN_API_KEY | scripts/configure-livetv.py
+python3 /opt/data/bin/hermes_secrets.py get JELLYFIN_API_KEY | \
+  scripts/configure-livetv.py --epg-url http://mr-do-jellyfin-epg:3000/guide.xml
 scripts/check-livetv.py      # on a LAN host (geo-restriction depends on the connection)
 ```
 

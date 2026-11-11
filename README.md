@@ -159,7 +159,12 @@ Defaults in `kubernetes/chart/values.yaml`; mr home lab overrides in `values-pro
 | `gpu.vaapiDevice` | `/dev/dri/renderD128` | - | VA-API device for the Jellyfin dashboard |
 | `liveTv.enabled` | `false` | `true` | render the channel list ConfigMap and mount it |
 | `liveTv.mountPath` | `/livetv` | - | mount path; Jellyfin M3U tuner file `/livetv/channels.m3u` |
-| `liveTv.channels` | `[]` | 11 channels | `id` (tvg-id), `name`, `group`, `url` (HLS) |
+| `liveTv.channels` | `[]` | 11 channels | `id` (tvg-id), `name`, `group`, `url` (HLS), `epgSite`, `epgSiteId`, `epgLang` |
+| `liveTv.epg.enabled` | `false` | `true` | iptv-org/epg grabber + guide server (Deployment/Service `<release>-epg`) |
+| `liveTv.epg.image` | `ghcr.io/iptv-org/epg:master@sha256:bac999d7...` | - | only a moving tag upstream; pinned by digest |
+| `liveTv.epg.schedule` / `days` / `maxConnections` | `30 4 * * *` / `3` / `2` | - | grab schedule (cron, `timeZone`), guide days, parallel requests |
+| `liveTv.epg.nodeHeapMb` / `port` | `1536` / `3000` | - | Node.js heap (below the memory limit), service port; guide at `/guide.xml` |
+| `liveTv.epg.resources` | 20m/256Mi, limit 1 CPU/2Gi | - | grabber + file server |
 | `service.type` / `port` | `LoadBalancer` / `8096` | - | Service |
 | `service.loadBalancerIP` | `""` | `192.168.0.5` | MetalLB IP (annotation `metallb.io/loadBalancerIPs`) |
 | `service.addressPool` | `""` | `first-pool` | MetalLB pool (annotation `metallb.io/address-pool`) |
