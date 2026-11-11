@@ -34,6 +34,13 @@ SETTINGS = {
     # tonemap_vaapi: no output format). The library has no HDR content (2026-11-11). Off.
     "EnableTonemapping": False,
     "EnableVppTonemapping": False,
+    # Phase 7: /transcode is an emptyDir with a 30Gi limit (exceeding it evicts the pod). Delete
+    # segments the client already fetched (kept 720 s for seeking back) and pause ffmpeg once it is
+    # 180 s ahead, so software-decoded sources (VP8/MPEG-2/VC-1, up to 6 cores) do not run flat out.
+    "EnableSegmentDeletion": True,
+    "SegmentKeepSeconds": 720,
+    "EnableThrottling": True,
+    "ThrottleDelaySeconds": 180,
 }
 
 

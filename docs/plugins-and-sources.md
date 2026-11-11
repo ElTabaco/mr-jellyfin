@@ -75,6 +75,11 @@ is through Zattoo's own apps. No Jellyfin plugin exists (official repository and
 existing tools (Kodi pvr.zattoo, zattoo_tvh (discontinued), wakdos-streamhub) log in with the
 customer account and use Zattoo's private app API - not an authorized integration. Use the Zattoo
 app on the TV.
+Phase 7 check of the Zattoo AGB (valid from 2025-09-01): private use only and no access for third
+parties (1.6, 4.4), no credentials to third parties (4.1), no simultaneous use of paid services on
+several devices unless offered (2.8), no circumvention of access controls (4.2), no decompiling of the
+app (5.1.5). A server-side integration modelled on rbuehlma/pvr.zattoo is therefore not permitted
+without written permission from Zattoo; not implemented.
 
 Parental control: Live TV channels have no rating, so `alexander` (unrated Live TV blocked) does
 not see any channel, including KiKA.

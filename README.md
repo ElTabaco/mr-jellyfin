@@ -13,7 +13,7 @@ k3s cluster, deployed by Argo CD from this repository. LAN only.
 | Media | Synology DS220+ `riemerkNASS.local:/volumeUSB1/usbshare/media` (USB SSD, 458 GB) over NFSv4.1, read-only |
 | State | node-local SSD on mr2: `/var/lib/mr-jellyfin/{config,cache}` |
 | Backups | daily 03:15 Europe/Zurich to `mr0.local:/srv/nfs4/homes/mr/jellyfin/backup`, 14 kept |
-| Status | Phase 6 done: running with VA-API, live TV + guide, monitoring and alerts; see [docs/phase-log.md](docs/phase-log.md) |
+| Status | In production (Phase 7 acceptance passed 2026-11-11): VA-API, live TV + guide, monitoring and alerts; see [docs/phase-log.md](docs/phase-log.md) |
 
 ## Repository layout
 
@@ -68,6 +68,7 @@ scripts/
 | 8096 | TCP/HTTP | Service `mr-do-jellyfin` (LoadBalancer `192.168.0.5`, pool `first-pool`) -> container `http` | Web UI, API, clients, `/health`, `/metrics` |
 | 9594 | TCP/HTTP | exporter sidecar (only if `exporter.enabled`) | jellyfin_exporter metrics for Prometheus |
 | 8080 | TCP/HTTP | generic-device-plugin pod (kube-system, mr2) | plugin health/metrics (not exposed) |
+| 3000 | TCP/HTTP | Service `mr-do-jellyfin-epg` (ClusterIP, only if `liveTv.epg.enabled`) | programme guide `/guide-clean.xml` (Jellyfin reads it) and raw `/guide.xml`; NetworkPolicy: only the Jellyfin pod |
 
 - `externalTrafficPolicy: Local`: client IP preserved (Jellyfin LAN detection), IP announced from mr2.
 - `loadBalancerSourceRanges: 192.168.0.0/24` and a NetworkPolicy (LAN CIDR, `monitoring` namespace, backup job).
@@ -84,6 +85,10 @@ scripts/
 | `mr-do-jellyfin-pvc-backup` | `/backup` (backup job only) | NFS PV, Retain | `mr0.local:/srv/nfs4/homes/mr/jellyfin/backup` | 50Gi | RWX |
 | `transcode` | `/transcode` | emptyDir | mr2 node disk | limit 30Gi | wiped on restart |
 | `tmp` | `/tmp` | emptyDir | mr2 node disk | limit 2Gi | wiped on restart |
+| `livetv` | `/livetv` (`channels.m3u`) | ConfigMap `mr-do-jellyfin-livetv` | rendered from `liveTv.channels` | - | read-only |
+| guide `public` | `/epg/public` (epg pod: `guide.xml`, `guide-clean.xml`) | emptyDir | mr2 node disk | limit 256Mi | rebuilt at pod start (grab at startup) |
+| guide `channels` | `/epg/public/channels.xml` (subPath) | ConfigMap `mr-do-jellyfin-epg` | rendered from `liveTv.channels[].epgSite*` | - | read-only |
+| guide `tmp` | `/tmp` (epg pod, `HOME`) | emptyDir | mr2 node disk | limit 512Mi | wiped on restart |
 
 Contents of `/config` (Jellyfin data dir, official image layout):
 `config/` server settings (`system.xml`, `encoding.xml`, `network.xml`, ...),
@@ -102,7 +107,8 @@ every PV has `persistentVolumeReclaimPolicy: Retain`.
 
 | Item | Value |
 |---|---|
-| UID / GID (Jellyfin, preflight, backup, restore) | `1000` / `1000` |
+| UID / GID (Jellyfin, preflight, backup, restore, guide grabber + sanitize sidecar) | `1000` / `1000` |
+| UID / GID (exporter sidecar) | `65534` / `65534` (image `USER`) |
 | fsGroup | `1000` (`fsGroupChangePolicy: OnRootMismatch`) |
 | Supplemental group with GPU | `992` = `render` on mr2 (owner group of `/dev/dri/renderD128`) |
 | Owner of `/var/lib/mr-jellyfin/{config,cache}` on mr2 | `1000:1000`, mode `0750` (Phase 2) |
@@ -117,6 +123,7 @@ every PV has `persistentVolumeReclaimPolicy: Retain`.
 | `docker.io/jellyfin/jellyfin` | `12.4.20261026-211555` | `sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771` | Jellyfin, preflight init |
 | `docker.io/library/python` | `3.14.10-slim-trixie` | `sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f` | backup CronJob, restore pod |
 | `docker.io/rebelcore/jellyfin-exporter` | `v1.6.0` | `sha256:d1985ef9ad50b8924e74ee1dd12accd64936a65150375a8e190c2293b6e2678c` | exporter sidecar (Phase 6) |
+| `ghcr.io/iptv-org/epg` | `master` (upstream publishes no version tags) | `sha256:bac999d7d651bd50abb1ced4829bfbdc5846018fab1b254e2ab617a8299a9ebe` | guide grabber + sanitize sidecar (Phase 5) |
 | `docker.io/squat/generic-device-plugin` | `7626d56` (release 0.2.0) | `sha256:11fa77056eb09661c08ab9760778eec7fded67b0119fff2536b064b28d1211c1` | GPU device plugin (Phase 4) |
 
 ## Environment variables
@@ -134,7 +141,13 @@ every PV has `persistentVolumeReclaimPolicy: Retain`.
 | backup | `JELLYFIN_API_KEY` | Secret `mr-do-jellyfin-api-key` key `api-key` (optional) | created out of band |
 | backup | `API_RETRIES`, `API_RETRY_SLEEP` | `3`, `120` (script defaults) | - |
 | exporter | `JELLYFIN_ADDRESS`, `JELLYFIN_TOKEN` | `http://127.0.0.1:8096`, Secret `mr-do-jellyfin-api-key`/`api-key` | `exporter.*` |
+| exporter | args `--collector.<name>` | `transcoding`, `tasks`, `storage` | `exporter.extraCollectors` |
 | restore | `ARCHIVE`, `MODE` | archive file name, `files` or `stage-api` | `scripts/restore.sh` |
+| epg | `HOME`, `TZ` | `/tmp`, `Europe/Zurich` | fixed, `timeZone` |
+| epg | `CRON_SCHEDULE`, `RUN_AT_STARTUP` | `30 4 * * *`, `true` | `liveTv.epg.schedule`, fixed |
+| epg | `DAYS`, `MAX_CONNECTIONS` | `3`, `2` | `liveTv.epg.days`, `liveTv.epg.maxConnections` |
+| epg | `NODE_OPTIONS` | `--max-old-space-size=1536` | `liveTv.epg.nodeHeapMb` |
+| sanitize (epg pod) | - | rewrites `guide.xml` -> `guide-clean.xml` every 300 s (drops empty `<star-rating>`) | fixed |
 
 Secrets are never in Git. The only Secret is `mr-do-jellyfin-api-key` (Jellyfin admin API key), created in
 Phase 3 with `kubectl create secret` ([docs/operations.md](docs/operations.md#api-key-secret)).
@@ -191,7 +204,6 @@ Defaults in `kubernetes/chart/values.yaml`; mr home lab overrides in `values-pro
 | `preflight.seedEnableMetrics` | `true` | - | first boot: `system.xml` with `EnableMetrics=true` |
 | `preflight.seedTranscodePath` | `true` | - | first boot: `encoding.xml` with `TranscodingTempPath=/transcode` |
 | `metrics.scrape` | `true` | - | `prometheus.io/*` pod annotations (8096 `/metrics`, or 9594 with exporter) |
-| `exporter.enabled` | `false` | - | jellyfin_exporter sidecar (Phase 6) |
 | `exporter.image.*` / `port` | see Images / `9594` | - | exporter |
 | `exporter.apiKeySecret` / `apiKeySecretKey` | `mr-do-jellyfin-api-key` / `api-key` | - | exporter token Secret |
 | `exporter.resources` | 10m/32Mi request, 100m/64Mi limit | - | exporter resources |

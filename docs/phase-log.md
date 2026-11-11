@@ -9,7 +9,7 @@
 | 4 AMD GPU | done | 2026-11-11 | approved 2026-11-11; PR #3, #4 merged |
 | 5 Online sources / plugins | done | 2026-11-11 | approved 2026-11-11; PRs #5-#8 |
 | 6 Monitoring / four-viewer test | done | 2026-11-11 | owner: autonomous work + self-merge for this session; PRs #9-#11, observer #32 |
-| 7 Production acceptance | not started | | |
+| 7 Production acceptance | done | 2026-11-11 | autonomous (owner, this session); PR #12 |
 
 ## Owner decisions (2026-11-10)
 
@@ -189,19 +189,47 @@ Backup with API key: `BACKUP OK` - API archive `jellyfin-backup-20261111000536.z
   [hardware-compatibility.md](hardware-compatibility.md#capacity-phase-6-load-test-2026-11-11).
 - Test media and the temporary library were removed afterwards (NAS folder, `/cache` files).
 
+## Phase 7 results - production acceptance (2026-11-11)
+
+| Check | Result |
+|---|---|
+| Health (`scripts/healthcheck.sh` from the LAN; `WITH_KUBECTL=1 SKIP_HTTP=1` on mr0) | HEALTHY / HEALTHY: deployment available, 4 PVCs Bound, 0 restarts, Argo CD Synced/Healthy |
+| Argo CD | `mr-do-jellyfin`, `mr-do-jellyfin-gpu-device-plugin`, 4 x `mr-do-observer-*`: Synced/Healthy |
+| Scheduled backup | CronJob ran unattended 03:15 (11 s): `jellyfin-files-20261111-031500.tar.gz` + API archive |
+| Restore test with real data | newest archive restored into an isolated instance (temporary namespace, read-only backup mount, removed afterwards): checksum ok, `jellyfin.db` + `playback_reporting.db` restored, server started in 3.6 s; users (5, incl. parental limit), libraries (5), plugins (7), VA-API settings, live TV tuner + guide, item counts **identical to production** |
+| Restart resilience | Jellyfin + guide pods deleted: ready after 33 s, GPU re-allocated, users/libraries/plugins/settings/11 channels with programmes back, Prometheus `jellyfin_up` 1, no alert (below the 5 min threshold) |
+| Alerts | end-to-end fire + resolve through CallMeBot (Phase 6) |
+| Capacity | four-viewer test passed (Phase 6) |
+| Docs | every Helm value, env var, port, volume, image, UID in README; guide grabber rows added |
+
+Changes in Phase 7:
+
+- Transcoding: `EnableSegmentDeletion` (keep 720 s) and `EnableThrottling` (180 s) on
+  (`scripts/configure-transcoding.py`). Reason: `/transcode` is a 30Gi emptyDir - four long
+  transcodes (2 h at 8 Mbit/s = 7 GB each) could exceed it and evict the pod; software-decoded
+  sources ran at the 6-core limit. Measured: VP8 1080p transcode, client fetching only the first
+  segment: ffmpeg stops at 111 segments (~330 s ahead), pod CPU then ~0.02 cores (before: 6 cores
+  until the file was finished). H.264 and VP8 transcodes still deliver segments normally.
+- Restore finding: the restored `encoding.xml` points to `/transcode`; an instance without that
+  mount fails to start (`UnauthorizedAccessException '/transcode'`). The chart always mounts it; a
+  manual DR instance needs it too ([backup-recovery.md](backup-recovery.md)).
+- Zattoo TODO closed: Zattoo AGB (valid from 2025-09-01) 1.6/4.4 (private use, no access for third
+  parties), 4.1 (no credentials to third parties), 2.8 (no simultaneous use on several devices unless
+  offered), 4.2 (no circumvention of access controls), 5.1.5 (no decompiling). A server-side
+  integration based on rbuehlma/pvr.zattoo (private app API, one account re-streamed to several
+  Jellyfin users) is not permitted -> **not implemented, no reverse engineering.** Only path: written
+  permission from Zattoo.
+
 ## Open items
 
 - 3sat starts at 640x360 (master playlist): check over several days whether its variant URL hash is
   stable, then pin it like the ARD channels.
-- TODO (owner request 2026-11-11, for Phase 7): evaluate a Jellyfin integration based on how
-  rbuehlma/pvr.zattoo (Kodi PVR add-on) talks to Zattoo. Gate before any code: Zattoo's terms of use
-  and/or written permission from Zattoo for third-party players; DRM per channel. Without that
-  permission it stays unsupported (private app API = not an authorized source).
-- VP8/MPEG-2/VC-1 sources decode in software at up to 6 cores; transcode throttling decision in Phase 6.
-- HDR tone mapping untested with real HDR content (failed with a generated file).
-
-- DHCP reservation for the NAS (192.168.0.233) on the router (owner).
-- `movies/anime/Drifters/Drifter.mp4`: unknown content, owner to classify.
+- HDR tone mapping untested with real HDR content (failed with a generated file); off.
+- SRF/RTS/RSI live: needs an ISP IPTV offer (e.g. Init7 TV7) or a DVB-C network tuner; owner's ISP unknown.
+- CallMeBot recipient: default Christoph/Telegram (question unanswered); change = Secret
+  `monitoring/callmebot-relay`.
 - Media on a single USB SSD without a copy; optional NAS-side copy to `/volume1` (RAID 1).
-- `readOnlyRootFilesystem` for the Jellyfin container (not tested yet; stays false).
 - Off-host copy of the backups (mr0 holds both the backups and the monthly archive).
+- `readOnlyRootFilesystem` for the Jellyfin container (not tested; stays false).
+- Progress reports (`/Sessions/Playing/Progress`) from the synthetic load-test clients returned 400
+  (test tool only; real clients unaffected).
