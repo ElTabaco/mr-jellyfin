@@ -33,8 +33,9 @@ securityContext:
   fsGroup: 1000
   # -- Extra supplemental groups. The render GID is added automatically when gpu.enabled=true.
   supplementalGroups: []
-  # -- Read-only root filesystem for the Jellyfin container. Off until verified with this image (Phase 3).
-  readOnlyRootFilesystem: false
+  # -- Read-only root filesystem for the Jellyfin container. Verified 2026-11-11 with 12.4: outside the
+  # volumes Jellyfin only writes below /var/tmp (mounted from the tmp emptyDir).
+  readOnlyRootFilesystem: true
 
 gpu:
   # -- Request the GPU render node from the generic device plugin (kubernetes/platform/gpu-device-plugin).
