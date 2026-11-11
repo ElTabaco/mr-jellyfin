@@ -87,5 +87,14 @@ The image tag can be reverted in Git, but **the database stays migrated**. Order
 ## Restore test
 
 Tested locally (Phase 1, sandbox, synthetic data): backup -> modify database -> restore -> data
-back; corrupt archive rejected by checksum; missing database fails the backup. The restore test on
-the cluster with real data is part of Phase 6/7 acceptance and is recorded in [phase-log.md](phase-log.md).
+back; corrupt archive rejected by checksum; missing database fails the backup.
+
+Cluster test with real data (Phase 7, 2026-11-11): the scheduled archive
+`jellyfin-files-20261111-031500.tar.gz` was restored with `files/restore.py` into an isolated
+instance (temporary namespace, backup volume mounted read-only, emptyDir config, same Jellyfin
+image). Users, libraries, plugins, transcoding and live TV settings and item counts were identical to
+production; production was not touched. Details in [phase-log.md](phase-log.md).
+
+A Jellyfin instance started from a restored `/config` needs a writable `/transcode` (set in
+`encoding.xml`); without it Jellyfin stops at startup with `Access to the path '/transcode' is denied`.
+The chart provides it; mount an emptyDir there in any manual recovery instance.

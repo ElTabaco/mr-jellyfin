@@ -103,6 +103,8 @@ load (AV1 encode shows 0-1 %). VCN utilisation needs per-process `drm-engine-*` 
 | Hardware encoding | on | verified |
 | Allow HEVC / AV1 encoding | off | H.264 output plays on every client; revisit with client tests |
 | Tone mapping | off | failed, and no HDR content |
+| Segment deletion | on, keep 720 s (Phase 7) | `/transcode` emptyDir limit 30Gi; exceeding it evicts the pod |
+| Throttling | on, 180 s ahead (Phase 7) | software-decoded sources no longer run at the 6-core limit until the end of the file; measured: pause at ~330 s ahead, pod CPU ~0.02 cores |
 
 ## Verified in Jellyfin (2026-11-11, after `gpu.enabled: true`)
 
