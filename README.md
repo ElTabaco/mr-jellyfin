@@ -54,6 +54,9 @@ scripts/
   restore.sh                      list / restore files backup / stage API archive
   healthcheck.sh                  HTTP + Kubernetes + Argo CD health
   check-no-secrets.sh             secret scan (CI)
+  configure-transcoding.py        apply the verified VA-API settings through the Jellyfin API
+  configure-livetv.py             register the Git channel list as M3U tuner, refresh the guide
+  check-livetv.py                 availability check of every live TV channel (run on the LAN)
 .github/workflows/                validate.yml, check-secrets.yml
 ```
 
@@ -154,6 +157,9 @@ Defaults in `kubernetes/chart/values.yaml`; mr home lab overrides in `values-pro
 | `gpu.resourceName` | `devic.es/dri-render` | - | device plugin resource |
 | `gpu.renderGroupId` | `992` | `992` | render GID on the GPU node |
 | `gpu.vaapiDevice` | `/dev/dri/renderD128` | - | VA-API device for the Jellyfin dashboard |
+| `liveTv.enabled` | `false` | `true` | render the channel list ConfigMap and mount it |
+| `liveTv.mountPath` | `/livetv` | - | mount path; Jellyfin M3U tuner file `/livetv/channels.m3u` |
+| `liveTv.channels` | `[]` | 11 channels | `id` (tvg-id), `name`, `group`, `url` (HLS) |
 | `service.type` / `port` | `LoadBalancer` / `8096` | - | Service |
 | `service.loadBalancerIP` | `""` | `192.168.0.5` | MetalLB IP (annotation `metallb.io/loadBalancerIPs`) |
 | `service.addressPool` | `""` | `first-pool` | MetalLB pool (annotation `metallb.io/address-pool`) |

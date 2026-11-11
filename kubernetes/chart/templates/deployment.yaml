@@ -140,6 +140,11 @@ spec:
               mountPath: /transcode
             - name: tmp
               mountPath: /tmp
+            {{- if .Values.liveTv.enabled }}
+            - name: livetv
+              mountPath: {{ .Values.liveTv.mountPath }}
+              readOnly: true
+            {{- end }}
         {{- if .Values.exporter.enabled }}
         - name: exporter
           image: {{ include "jf.image" .Values.exporter.image }}
@@ -183,3 +188,8 @@ spec:
         - name: tmp
           emptyDir:
             sizeLimit: {{ .Values.persistence.tmp.sizeLimit }}
+        {{- if .Values.liveTv.enabled }}
+        - name: livetv
+          configMap:
+            name: {{ $fn }}-livetv
+        {{- end }}

@@ -6,8 +6,8 @@
 | 1 Repository | done | 2026-11-10 | PR #1 merged |
 | 2 Storage | done | 2026-11-10 | Changes A1-A4, B-E approved 2026-11-10 ("approve all"); results below |
 | 3 Deployment | done | 2026-11-10/11 | approved 2026-11-10; owner playback test OK 2026-11-11 |
-| 4 AMD GPU | done, in review | 2026-11-11 | approved 2026-11-11; PR #3 merged; results below |
-| 5 Online sources / plugins | not started | | |
+| 4 AMD GPU | done | 2026-11-11 | approved 2026-11-11; PR #3, #4 merged |
+| 5 Online sources / plugins | in progress | 2026-11-11 | approved 2026-11-11; results below |
 | 6 Monitoring / four-viewer test | not started | | |
 | 7 Production acceptance | not started | | |
 
@@ -145,6 +145,20 @@ Backup with API key: `BACKUP OK` - API archive `jellyfin-backup-20261111000536.z
 - Jellyfin transcodes use the GPU: H.264 source fully in hardware (31.6x, 0.36 CPU cores); VP8 source
   software decode + hardware encode (28x, 6 cores = pod limit). Details in
   [hardware-compatibility.md](hardware-compatibility.md).
+
+## Phase 5 results (2026-11-11)
+
+- Owner: NAS DHCP reservation on the router done (NAS still 192.168.0.233, `riemerkNASS.local`).
+- Owner choices: plugin Playback Reporting; live TV with German-language public channels (ARD alpha,
+  KiKA, tagesschau24 + "ARD, ZDF, RTL, SRF, ORF and the most common German-language channels").
+- Playback Reporting 19.0.0.0 (ABI 12.0) installed from the official repository; pod restarted
+  (`kubectl delete pod`), plugin `Active`.
+- 22 German/Austrian channel URLs tested; 11 configured (Git: `liveTv.channels`), the others are
+  geo-blocked, token-protected or only available from re-broadcasters:
+  [plugins-and-sources.md](plugins-and-sources.md).
+- Chart: `liveTv` values, ConfigMap `mr-do-jellyfin-livetv` mounted at `/livetv` (read-only).
+- Scripts: `configure-livetv.py` (M3U tuner + guide refresh), `check-livetv.py` (availability);
+  check from mr0: 11/11 OK.
 
 ## Open items
 
