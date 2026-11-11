@@ -60,6 +60,9 @@ preflight:
 # The annotation-based scrape then targets the exporter port (one port per pod in that job).
 exporter:
   enabled: true
+  # transcoding: per-session codec/hw/reason; tasks: scheduled task status (library scan, guide);
+  # storage: free/used bytes of the library and data paths.
+  extraCollectors: [transcoding, tasks, storage]
 
 liveTv:
   enabled: true
