@@ -7,8 +7,8 @@
 | 2 Storage | done | 2026-11-10 | Changes A1-A4, B-E approved 2026-11-10 ("approve all"); results below |
 | 3 Deployment | done | 2026-11-10/11 | approved 2026-11-10; owner playback test OK 2026-11-11 |
 | 4 AMD GPU | done | 2026-11-11 | approved 2026-11-11; PR #3, #4 merged |
-| 5 Online sources / plugins | in progress | 2026-11-11 | approved 2026-11-11; results below |
-| 6 Monitoring / four-viewer test | not started | | |
+| 5 Online sources / plugins | done | 2026-11-11 | approved 2026-11-11; PRs #5-#8 |
+| 6 Monitoring / four-viewer test | in progress | 2026-11-11 | owner: autonomous work + self-merge for this session |
 | 7 Production acceptance | not started | | |
 
 ## Owner decisions (2026-11-10)
@@ -165,9 +165,19 @@ Backup with API key: `BACKUP OK` - API archive `jellyfin-backup-20261111000536.z
 - Owner: programme guide yes (self-hosted grabber); alexander keeps Live TV blocked; Zattoo requested
   -> not possible (no authorized interface, no plugin), see plugins-and-sources.md.
 - Guide grabber tested in a temporary restricted namespace (removed): 1350 programmes for 11 channels.
+- PR #7 deployed the guide; Jellyfin imported 0 programmes: its XMLTV reader throws on the empty
+  `<star-rating system="IMDb"/>` elements (all 678 ratings). PR #8: sanitize sidecar ->
+  `guide-clean.xml`; `configure-livetv.py --recreate-tuner` removed 9 duplicate channels left by the
+  URL change. Result: 11 channels, 82-219 upcoming programmes each.
+- Live playback through Jellyfin after PR #7/#8 (HLS remux, 0 errors): Das Erste 1920x1080 first
+  segment after 8.4 s (before: 640x360, 22 s), KiKA 1920x1080 5.0 s (before 640x360, 18 s),
+  tagesschau24 1280x720 5.9 s, 3sat 640x360 17.9 s (master playlist; variant URL contains a hash,
+  stability to be checked before pinning).
 
 ## Open items
 
+- 3sat starts at 640x360 (master playlist): check over several days whether its variant URL hash is
+  stable, then pin it like the ARD channels.
 - TODO (owner request 2026-11-11, for Phase 7): evaluate a Jellyfin integration based on how
   rbuehlma/pvr.zattoo (Kodi PVR add-on) talks to Zattoo. Gate before any code: Zattoo's terms of use
   and/or written permission from Zattoo for third-party players; DRM per channel. Without that
