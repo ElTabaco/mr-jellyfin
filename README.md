@@ -13,7 +13,7 @@ k3s cluster, deployed by Argo CD from this repository. LAN only.
 | Media | Synology DS220+ `riemerkNASS.local:/volumeUSB1/usbshare/media` (USB SSD, 458 GB) over NFSv4.1, read-only |
 | State | node-local SSD on mr2: `/var/lib/mr-jellyfin/{config,cache}` |
 | Backups | daily 03:15 Europe/Zurich to `mr0.local:/srv/nfs4/homes/mr/jellyfin/backup`, 14 kept |
-| Status | Phase 4: running with AMD VA-API hardware transcoding: see [docs/phase-log.md](docs/phase-log.md) |
+| Status | Phase 6 done: running with VA-API, live TV + guide, monitoring and alerts; see [docs/phase-log.md](docs/phase-log.md) |
 
 ## Repository layout
 
@@ -57,6 +57,7 @@ scripts/
   configure-transcoding.py        apply the verified VA-API settings through the Jellyfin API
   configure-livetv.py             register the Git channel list as M3U tuner, refresh the guide
   check-livetv.py                 availability check of every live TV channel (run on the LAN)
+  loadtest/                       four-viewer load test: media generator, synthetic clients, in-pod sampler, analysis
 .github/workflows/                validate.yml, check-secrets.yml
 ```
 

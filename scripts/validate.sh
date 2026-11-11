@@ -111,7 +111,7 @@ if have shellcheck; then
 else
     warn "shellcheck not installed, only bash -n run"
 fi
-if "$PYTHON" -m py_compile "$CHART/files/backup.py" "$ROOT/scripts/policy_check.py" "$ROOT/scripts/configure-transcoding.py" "$ROOT/scripts/configure-livetv.py" "$ROOT/scripts/check-livetv.py"; then
+if "$PYTHON" -m py_compile "$CHART/files/backup.py" "$ROOT/scripts/policy_check.py" "$ROOT/scripts/configure-transcoding.py" "$ROOT/scripts/configure-livetv.py" "$ROOT/scripts/check-livetv.py" "$ROOT/scripts/loadtest/loadtest.py" "$ROOT/scripts/loadtest/analyze.py"; then
     pass "python compile"
 else
     bad "python compile"
