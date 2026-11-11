@@ -8,9 +8,9 @@ k3s cluster, deployed by Argo CD from this repository. LAN only.
 | Argo CD application | `mr-do-jellyfin` (`kubernetes/application.yaml`) |
 | Namespace | `mr-do-jellyfin` (created by Argo CD, Pod Security `restricted`) |
 | Jellyfin | 12.4, image `docker.io/jellyfin/jellyfin:12.4.20261026-211555@sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771` |
-| URL | `http://192.168.0.5:8096` (MetalLB, LAN `192.168.0.0/24` only, plain HTTP) |
+| URL | `http://192.168.x.x:8096` (MetalLB, LAN `192.168.x.x/24` only, plain HTTP) |
 | Node | `mr2` (AMD Ryzen 7 7840HS, Radeon 780M iGPU, VCN 4.0) |
-| Media | Synology DS220+ `riemerkNASS.local:/volumeUSB1/usbshare/media` (USB SSD, 458 GB) over NFSv4.1, read-only |
+| Media | Synology DS220+ `nasName.local:/volumeUSBX/usbshare/media` (USB SSD, 458 GB) over NFSv4.1, read-only |
 | State | node-local SSD on mr2: `/var/lib/mr-jellyfin/{config,cache}` |
 | Backups | daily 03:15 Europe/Zurich to `mr0.local:/srv/nfs4/homes/mr/jellyfin/backup`, 14 kept |
 | Status | In production (Phase 7 acceptance passed 2026-11-11): VA-API, live TV + guide, monitoring and alerts; see [docs/phase-log.md](docs/phase-log.md) |
