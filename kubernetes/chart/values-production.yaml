@@ -8,8 +8,9 @@ nodeSelector:
   kubernetes.io/hostname: mr2
 
 gpu:
-  # Phase 4 switches this on after the device plugin is deployed and vainfo is verified.
-  enabled: false
+  # Phase 4 (2026-11-11): device plugin verified, vainfo + ffmpeg tests passed
+  # (docs/hardware-compatibility.md).
+  enabled: true
   renderGroupId: 992
 
 service:

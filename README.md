@@ -150,7 +150,7 @@ Defaults in `kubernetes/chart/values.yaml`; mr home lab overrides in `values-pro
 | `securityContext.runAsUser` / `runAsGroup` / `fsGroup` | `1000` / `1000` / `1000` | - | identity |
 | `securityContext.supplementalGroups` | `[]` | - | extra groups (render GID added when GPU on) |
 | `securityContext.readOnlyRootFilesystem` | `false` | - | Jellyfin container root fs read-only (to verify in Phase 3) |
-| `gpu.enabled` | `false` | `false` (Phase 4: `true`) | request the render node |
+| `gpu.enabled` | `false` | `true` | request the render node |
 | `gpu.resourceName` | `devic.es/dri-render` | - | device plugin resource |
 | `gpu.renderGroupId` | `992` | `992` | render GID on the GPU node |
 | `gpu.vaapiDevice` | `/dev/dri/renderD128` | - | VA-API device for the Jellyfin dashboard |

@@ -84,5 +84,14 @@ Set `gpu.enabled: true` in `values-production.yaml` (PR), then verify inside the
 kubectl -n mr-do-jellyfin exec deploy/mr-do-jellyfin -- /usr/lib/jellyfin-ffmpeg/vainfo --display drm --device /dev/dri/renderD128
 ```
 
+Then apply the verified Jellyfin transcoding settings (VA-API, hardware decode H.264/HEVC/VP9/AV1,
+hardware encoding, no tone mapping) from a LAN host, key from stdin:
+
+```console
+python3 /opt/data/bin/hermes_secrets.py get JELLYFIN_API_KEY | scripts/configure-transcoding.py
+```
+
+Results and the codec matrix: [hardware-compatibility.md](hardware-compatibility.md).
+
 Configure Dashboard > Playback > Transcoding with the verified codecs only
 ([hardware-compatibility.md](hardware-compatibility.md)).

@@ -48,6 +48,9 @@ spec:
                 - count: 1
                   paths:
                     - path: /dev/dri/renderD128
+          # Host /dev is mounted read-only over the container's /dev, so the kubelet cannot create
+          # the default /dev/termination-log mount point there (runc: read-only file system).
+          terminationMessagePath: /tmp/termination-log
           ports:
             - name: http
               containerPort: 8080
