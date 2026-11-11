@@ -168,6 +168,10 @@ Backup with API key: `BACKUP OK` - API archive `jellyfin-backup-20261111000536.z
 
 ## Open items
 
+- TODO (owner request 2026-11-11, for Phase 7): evaluate a Jellyfin integration based on how
+  rbuehlma/pvr.zattoo (Kodi PVR add-on) talks to Zattoo. Gate before any code: Zattoo's terms of use
+  and/or written permission from Zattoo for third-party players; DRM per channel. Without that
+  permission it stays unsupported (private app API = not an authorized source).
 - VP8/MPEG-2/VC-1 sources decode in software at up to 6 cores; transcode throttling decision in Phase 6.
 - HDR tone mapping untested with real HDR content (failed with a generated file).
 
