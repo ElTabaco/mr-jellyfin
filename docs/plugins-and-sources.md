@@ -65,6 +65,10 @@ image `ghcr.io/iptv-org/epg:master` pinned by digest) as Deployment `mr-do-jelly
 `http://mr-do-jellyfin-epg:3000/guide.xml` (NetworkPolicy: only the Jellyfin pod). Test run as uid
 1000 under Pod Security restricted: 11 channels, 1350 programmes in 1 s after loading the channel
 database; needs about 400 MB Node.js heap (OOM at a 768Mi limit, so 2Gi limit / 1536 MB heap).
+Jellyfin 12.4's XMLTV reader throws on the empty `<star-rating system="IMDb"/>` elements in the
+teleboy.ch listings (all 678 ratings of the first guide were empty) and then imports no programmes
+for the channel. A sidecar in the guide pod writes `guide-clean.xml` without them every 5 minutes;
+Jellyfin reads `http://mr-do-jellyfin-epg:3000/guide-clean.xml`.
 
 Zattoo (owner request 2026-11-11): **not supported.** No M3U/IPTV/API for third-party players; access
 is through Zattoo's own apps. No Jellyfin plugin exists (official repository and GitHub search); the

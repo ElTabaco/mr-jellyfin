@@ -2,7 +2,7 @@
 {{- $fn := include "jf.fullname" . -}}
 {{- $e := .Values.liveTv.epg -}}
 # Programme guide: iptv-org/epg grabber (scheduled inside the container) + static file server.
-# Jellyfin reads http://<release>-epg:<port>/guide.xml as XMLTV listings provider
+# Jellyfin reads http://<release>-epg:<port>/guide-clean.xml as XMLTV listings provider
 # (scripts/configure-livetv.py --epg-url). Channel ids = liveTv.channels[].id (M3U tvg-id).
 apiVersion: v1
 kind: ConfigMap
@@ -106,6 +106,36 @@ spec:
               readOnly: true
             - name: tmp
               mountPath: /tmp
+        # Jellyfin's XMLTV reader (Jellyfin.XmlTv, 12.4) throws in ProcessStarRating on an empty
+        # <star-rating system="IMDb"/> (no <value>), which the teleboy.ch listings contain; the whole
+        # channel then gets no programmes. This sidecar writes guide-clean.xml without empty ratings.
+        - name: sanitize
+          image: {{ include "jf.image" $e.image }}
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              while true; do
+                if [ -s /epg/public/guide.xml ]; then
+                  sed -E -e 's#<star-rating[^>]*/>##g' -e 's#<star-rating[^>]*>[[:space:]]*</star-rating>##g' \
+                    /epg/public/guide.xml > /epg/public/.guide-clean.tmp \
+                    && mv /epg/public/.guide-clean.tmp /epg/public/guide-clean.xml
+                fi
+                sleep 300
+              done
+          securityContext:
+            {{- include "jf.containerSecurityContext" . | nindent 12 }}
+            readOnlyRootFilesystem: true
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
+          volumeMounts:
+            - name: public
+              mountPath: /epg/public
       volumes:
         - name: public
           emptyDir:
