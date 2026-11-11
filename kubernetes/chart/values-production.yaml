@@ -56,6 +56,11 @@ preflight:
 # (docs/plugins-and-sources.md). International ("int") feeds; the URL is the highest-quality variant
 # playlist where its name is stable (ffmpeg would otherwise start with the first, lowest variant);
 # 3sat and ORF III keep the master playlist (hashed / redirected variant URLs).
+# Phase 6 (2026-11-11): jellyfin_exporter sidecar (rebelcore v1.6.0, released 2026-10-26, active).
+# The annotation-based scrape then targets the exporter port (one port per pod in that job).
+exporter:
+  enabled: true
+
 liveTv:
   enabled: true
   # Programme guide: teleboy.ch listings via the iptv-org/epg grabber (owner decision 2026-11-11).
