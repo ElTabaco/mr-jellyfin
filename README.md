@@ -68,7 +68,7 @@ scripts/
 | 8096 | TCP/HTTP | Service `mr-do-jellyfin` (LoadBalancer `192.168.0.5`, pool `first-pool`) -> container `http` | Web UI, API, clients, `/health`, `/metrics` |
 | 9594 | TCP/HTTP | exporter sidecar (only if `exporter.enabled`) | jellyfin_exporter metrics for Prometheus |
 | 8080 | TCP/HTTP | generic-device-plugin pod (kube-system, mr2) | plugin health/metrics (not exposed) |
-| 3000 | TCP/HTTP | Service `mr-do-jellyfin-epg` (ClusterIP, only if `liveTv.epg.enabled`) | programme guide `/guide-clean.xml` (Jellyfin reads it) and raw `/guide.xml`; NetworkPolicy: only the Jellyfin pod |
+| 3000 | TCP/HTTP | Service `mr-do-jellyfin-epg` (ClusterIP, only if `liveTv.epg.enabled`) | programme guide `/guide-clean.xml` (Jellyfin reads it), raw `/guide.xml`, reduced live masters `/pin/<channel>.m3u8`; NetworkPolicy: only the Jellyfin pod |
 
 - `externalTrafficPolicy: Local`: client IP preserved (Jellyfin LAN detection), IP announced from mr2.
 - `loadBalancerSourceRanges: 192.168.0.0/24` and a NetworkPolicy (LAN CIDR, `monitoring` namespace, backup job).
@@ -89,6 +89,8 @@ scripts/
 | guide `public` | `/epg/public` (epg pod: `guide.xml`, `guide-clean.xml`) | emptyDir | mr2 node disk | limit 256Mi | rebuilt at pod start (grab at startup) |
 | guide `channels` | `/epg/public/channels.xml` (subPath) | ConfigMap `mr-do-jellyfin-epg` | rendered from `liveTv.channels[].epgSite*` | - | read-only |
 | guide `tmp` | `/tmp` (epg pod, `HOME`) | emptyDir | mr2 node disk | limit 512Mi | wiped on restart |
+| guide `pin` | `/pin` (pin sidecar: `pins.txt`, `pin.awk`) | ConfigMap `mr-do-jellyfin-epg` | rendered from `liveTv.channels[].pinResolution` | - | read-only |
+| guide `pin-tmp` | `/tmp` (pin sidecar) | emptyDir | mr2 node disk | limit 16Mi | wiped on restart |
 
 Contents of `/config` (Jellyfin data dir, official image layout):
 `config/` server settings (`system.xml`, `encoding.xml`, `network.xml`, ...),
@@ -107,7 +109,7 @@ every PV has `persistentVolumeReclaimPolicy: Retain`.
 
 | Item | Value |
 |---|---|
-| UID / GID (Jellyfin, preflight, backup, restore, guide grabber + sanitize sidecar) | `1000` / `1000` |
+| UID / GID (Jellyfin, preflight, backup, restore, guide grabber + sanitize + pin sidecars) | `1000` / `1000` |
 | UID / GID (exporter sidecar) | `65534` / `65534` (image `USER`) |
 | fsGroup | `1000` (`fsGroupChangePolicy: OnRootMismatch`) |
 | Supplemental group with GPU | `992` = `render` on mr2 (owner group of `/dev/dri/renderD128`) |
@@ -123,7 +125,7 @@ every PV has `persistentVolumeReclaimPolicy: Retain`.
 | `docker.io/jellyfin/jellyfin` | `12.4.20261026-211555` | `sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771` | Jellyfin, preflight init |
 | `docker.io/library/python` | `3.14.10-slim-trixie` | `sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f` | backup CronJob, restore pod |
 | `docker.io/rebelcore/jellyfin-exporter` | `v1.6.0` | `sha256:d1985ef9ad50b8924e74ee1dd12accd64936a65150375a8e190c2293b6e2678c` | exporter sidecar (Phase 6) |
-| `ghcr.io/iptv-org/epg` | `master` (upstream publishes no version tags) | `sha256:bac999d7d651bd50abb1ced4829bfbdc5846018fab1b254e2ab617a8299a9ebe` | guide grabber + sanitize sidecar (Phase 5) |
+| `ghcr.io/iptv-org/epg` | `master` (upstream publishes no version tags) | `sha256:bac999d7d651bd50abb1ced4829bfbdc5846018fab1b254e2ab617a8299a9ebe` | guide grabber + sanitize and pin sidecars (Phase 5) |
 | `docker.io/squat/generic-device-plugin` | `7626d56` (release 0.2.0) | `sha256:11fa77056eb09661c08ab9760778eec7fded67b0119fff2536b064b28d1211c1` | GPU device plugin (Phase 4) |
 
 ## Environment variables
@@ -148,6 +150,7 @@ every PV has `persistentVolumeReclaimPolicy: Retain`.
 | epg | `DAYS`, `MAX_CONNECTIONS` | `3`, `2` | `liveTv.epg.days`, `liveTv.epg.maxConnections` |
 | epg | `NODE_OPTIONS` | `--max-old-space-size=1536` | `liveTv.epg.nodeHeapMb` |
 | sanitize (epg pod) | - | rewrites `guide.xml` -> `guide-clean.xml` every 300 s (drops empty `<star-rating>`) | fixed |
+| pin (epg pod) | - | every 300 s: master of each channel with `pinResolution` -> `/epg/public/pin/<slug>.m3u8` (slug = lower-case id, non-alphanumerics -> `-`) | `/pin/pins.txt`, `/pin/pin.awk` from ConfigMap `mr-do-jellyfin-epg` |
 
 Secrets are never in Git. The only Secret is `mr-do-jellyfin-api-key` (Jellyfin admin API key), created in
 Phase 3 with `kubectl create secret` ([docs/operations.md](docs/operations.md#api-key-secret)).
@@ -175,7 +178,7 @@ Defaults in `kubernetes/chart/values.yaml`; mr home lab overrides in `values-pro
 | `exporter.extraCollectors` | `[]` | `[transcoding, tasks, storage]` | `--collector.<name>` flags in addition to media, playing, system, users |
 | `liveTv.enabled` | `false` | `true` | render the channel list ConfigMap and mount it |
 | `liveTv.mountPath` | `/livetv` | - | mount path; Jellyfin M3U tuner file `/livetv/channels.m3u` |
-| `liveTv.channels` | `[]` | 11 channels | `id` (tvg-id), `name`, `group`, `url` (HLS), `epgSite`, `epgSiteId`, `epgLang` |
+| `liveTv.channels` | `[]` | 11 channels | `id` (tvg-id), `name`, `group`, `url` (HLS), `epgSite`, `epgSiteId`, `epgLang`, `pinResolution` (served reduced master, needs `liveTv.epg.enabled`) |
 | `liveTv.epg.enabled` | `false` | `true` | iptv-org/epg grabber + guide server (Deployment/Service `<release>-epg`) |
 | `liveTv.epg.image` | `ghcr.io/iptv-org/epg:master@sha256:bac999d7...` | - | only a moving tag upstream; pinned by digest |
 | `liveTv.epg.schedule` / `days` / `maxConnections` | `30 4 * * *` / `3` / `2` | - | grab schedule (cron, `timeZone`), guide days, parallel requests |

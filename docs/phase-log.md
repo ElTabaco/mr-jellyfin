@@ -182,7 +182,8 @@ Backup with API key: `BACKUP OK` - API archive `jellyfin-backup-20261111000536.z
   + `callmebot-relay`; every PromQL expression was run against the live Prometheus first. Grafana
   provisioning loaded 13 rules (10 normal at start). End-to-end alert test fired and resolved through
   CallMeBot (Telegram, HTTP 200). See [monitoring/README.md](../monitoring/README.md).
-- Recipient question (CallMeBot) not answered -> default Christoph/Telegram; change = Secret update.
+- CallMeBot recipient: first Christoph/Telegram (default), changed to Konstantin/WhatsApp on the
+  owner's answer (2026-11-11); Secret update only.
 - Four-viewer load test (synthetic clients, 300 s): 4K Direct Play + 1080p Direct Play + 2 x 1080p
   hardware transcodes, 0 stalls, 0 ffmpeg errors, startup 0.45-1.4 s, pod CPU max 0.86 cores, node
   max 0.71 of 16 cores, network out avg 40 Mbit/s. Details and limits:
@@ -231,15 +232,24 @@ Changes in Phase 7:
 - Owner request to download purchased commercial anime (Solo Leveling, Hunter x Hunter): not done,
   only unlicensed download sources exist. Owner chose to skip.
 
+## Owner decisions 2026-11-11 (evening)
+
+- Alerts go to Konstantin via WhatsApp (CallMeBot), not Christoph.
+- No ISP IPTV offer available -> SRF/RTS/RSI live stay unsupported.
+- Media has **no copy and no backup** (not important, can be downloaded again): no NAS-side copy,
+  no media in the mr0 backups or elsewhere. The Jellyfin configuration backup (mr0) stays.
+- Zattoo: owner wants a Jellyfin integration modelled on the Kodi add-on rbuehlma/pvr.zattoo, with
+  the owner's own login; to be done in a separate session (brief in the vault:
+  `Projects/mr-jellyfin/zattoo-session-brief.md`).
+
+3sat: its master lists video-only variants (audio as separate renditions), so a variant URL has no
+sound and the full master starts at 640x360. New: `pinResolution` per channel - the epg pod's `pin`
+sidecar serves a reduced master (720p50 + default audio, absolute URLs, refreshed every 5 min) at
+`/pin/3sat-de-sd.m3u8`; the variant path was identical on 4 requests from 2 hosts. ffmpeg test of the
+reduced master: H.264 1280x720 + AAC stereo.
+
 ## Open items
 
-- 3sat starts at 640x360 (master playlist): check over several days whether its variant URL hash is
-  stable, then pin it like the ARD channels.
-- SRF/RTS/RSI live: needs an ISP IPTV offer (e.g. Init7 TV7) or a DVB-C network tuner; owner's ISP unknown.
-- CallMeBot recipient: default Christoph/Telegram (question unanswered); change = Secret
-  `monitoring/callmebot-relay`.
-- Media on a single USB SSD without a copy; optional NAS-side copy to `/volume1` (RAID 1).
-- Off-host copy of the backups (mr0 holds both the backups and the monthly archive).
 - `readOnlyRootFilesystem` for the Jellyfin container (not tested; stays false).
 - Progress reports (`/Sessions/Playing/Progress`) from the synthetic load-test clients returned 400
   (test tool only; real clients unaffected).

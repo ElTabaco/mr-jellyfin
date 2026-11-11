@@ -13,6 +13,10 @@ data:
     {{- range .Values.liveTv.channels }}
     {{- if or (not .name) (not .url) }}{{ fail "liveTv.channels: every channel needs name and url" }}{{ end }}
     #EXTINF:-1 tvg-id="{{ .id | default "" }}" tvg-name="{{ .name }}" group-title="{{ .group | default "TV" }}",{{ .name }}
+    {{- if and .pinResolution $.Values.liveTv.epg.enabled }}
+    http://{{ $fn }}-epg:{{ $.Values.liveTv.epg.port }}/pin/{{ regexReplaceAll "[^a-z0-9]+" (lower (.id | default .name)) "-" }}.m3u8
+    {{- else }}
     {{ .url }}
+    {{- end }}
     {{- end }}
 {{- end }}

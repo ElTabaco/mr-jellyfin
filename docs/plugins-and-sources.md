@@ -32,7 +32,7 @@ playlist -> highest variant -> newest segment (`scripts/check-livetv.py`), 2026-
 | Channel | Source host | Result | Configured |
 |---|---|---|---|
 | Das Erste (international feed) | daserste-live.ard-mcdn.de | OK 1080p | yes |
-| 3sat (DACH feed) | zdf-hls-18.akamaized.net | OK 720p | yes |
+| 3sat (DACH feed) | zdf-hls-18.akamaized.net | OK 720p50 (reduced master via `pinResolution`, variants have no muxed audio) | yes |
 | tagesschau24 | tagesschau.akamaized.net | OK 720p | yes |
 | ARD alpha | mcdn.br.de | OK 1080p | yes |
 | KiKA (worldwide feed) | kikahls.akamaized.net | OK 1080p | yes |
