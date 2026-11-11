@@ -6,7 +6,7 @@
 | 1 Repository | done | 2026-11-10 | PR #1 merged |
 | 2 Storage | done | 2026-11-10 | Changes A1-A4, B-E approved 2026-11-10 ("approve all"); results below |
 | 3 Deployment | done | 2026-11-10/11 | approved 2026-11-10; owner playback test OK 2026-11-11 |
-| 4 AMD GPU | in progress | 2026-11-11 | approved 2026-11-11; results below |
+| 4 AMD GPU | done, in review | 2026-11-11 | approved 2026-11-11; PR #3 merged; results below |
 | 5 Online sources / plugins | not started | | |
 | 6 Monitoring / four-viewer test | not started | | |
 | 7 Production acceptance | not started | | |
@@ -136,11 +136,20 @@ Backup with API key: `BACKUP OK` - API archive `jellyfin-backup-20261111000536.z
   encode H.264/HEVC/AV1; no MPEG-2/VC-1/VP8; HDR tone mapping failed (no HDR content in the library).
   Software transcode 1080p->720p used 7.9 CPU cores, the VA-API transcode 0.27 cores.
 - Test namespace removed.
-- Next (after merge): Argo CD deploys the plugin fix and `gpu.enabled: true` (Jellyfin restarts once),
-  `scripts/configure-transcoding.py` sets VA-API in Jellyfin, then a Jellyfin transcode is checked for
-  `HardwareAccelerationType=vaapi`.
+
+## Phase 4 results (2026-11-11, part 2, after PR #3 merge)
+
+- Argo CD synced both apps to `d4e7ae4` within 30 s: device plugin pod Running (0 restarts), node mr2
+  allocatable/allocated `devic.es/dri-render` 1/1, Jellyfin restarted once with the render node.
+- `scripts/configure-transcoding.py` applied VA-API settings (idempotent re-run: no change).
+- Jellyfin transcodes use the GPU: H.264 source fully in hardware (31.6x, 0.36 CPU cores); VP8 source
+  software decode + hardware encode (28x, 6 cores = pod limit). Details in
+  [hardware-compatibility.md](hardware-compatibility.md).
 
 ## Open items
+
+- VP8/MPEG-2/VC-1 sources decode in software at up to 6 cores; transcode throttling decision in Phase 6.
+- HDR tone mapping untested with real HDR content (failed with a generated file).
 
 - DHCP reservation for the NAS (192.168.0.233) on the router (owner).
 - `movies/anime/Drifters/Drifter.mp4`: unknown content, owner to classify.

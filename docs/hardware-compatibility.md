@@ -104,6 +104,26 @@ load (AV1 encode shows 0-1 %). VCN utilisation needs per-process `drm-engine-*` 
 | Allow HEVC / AV1 encoding | off | H.264 output plays on every client; revisit with client tests |
 | Tone mapping | off | failed, and no HDR content |
 
+## Verified in Jellyfin (2026-11-11, after `gpu.enabled: true`)
+
+- Pod: uid 1000, groups 1000 + 992, `privileged: false`, `allowPrivilegeEscalation: false`, all
+  capabilities dropped, limit `devic.es/dri-render: 1`; `/dev/dri` contains only `renderD128`.
+  vainfo in the Jellyfin container: same 17 lines as above.
+- `scripts/configure-transcoding.py`: applied 2 settings (`HardwareAccelerationType` none -> vaapi,
+  `HardwareDecodingCodecs` [h264, vc1] -> [h264, hevc, vp9, av1]); second run: no change.
+- Forced transcodes through the Jellyfin API (H.264, 960 px, 1.5 Mbit/s), from the `FFmpeg.Transcode-*`
+  logs:
+
+| Source (library) | Pipeline | Speed | Pod CPU while encoding | ffmpeg errors |
+|---|---|---|---|---|
+| H.264 1280x720 | `-hwaccel vaapi` -> `scale_vaapi` -> `h264_vaapi` | 817 fps, 31.6x | 0.36 cores | 0 |
+| VP8 1920x1080 | software decode -> `h264_vaapi` | 723 fps, 28x | **6.0 cores (the pod limit)** | 0 |
+
+CPU is measured from the pod cgroup (`cpu.stat`) over 12 s while ffmpeg encodes ahead at full speed
+(throttling off); idle pod: 0.01 cores. At realtime playback the cost is a fraction of this, but a
+VP8 (or MPEG-2/VC-1) transcode runs at the 6-core limit until it has encoded ahead. Phase 6 measures
+this with real clients and decides on transcode throttling.
+
 ## Capacity
 
 No capacity is claimed. The four-viewer target (one 4K Direct Play, one 1080p Direct Play, two
