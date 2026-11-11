@@ -30,9 +30,10 @@ SETTINGS = {
     # client devices are confirmed (Phase 6).
     "AllowHevcEncoding": False,
     "AllowAv1Encoding": False,
-    # HDR -> SDR tone mapping failed in the pod (Vulkan/libplacebo: DRM format modifier error;
-    # tonemap_vaapi: no output format). The library has no HDR content (2026-11-11). Off.
-    "EnableTonemapping": False,
+    # HDR10 -> SDR tone mapping (Vulkan/libplacebo, bt.2390): verified with a real HDR10 file
+    # (Sol Levante, 4K HEVC Main10 PQ/BT.2020) 2026-11-11: 6.8x realtime to 1080p, 0 errors, visually
+    # correct. The Phase 4 failure came from a generated file without full HDR tags. VPP (Intel) off.
+    "EnableTonemapping": True,
     "EnableVppTonemapping": False,
     # Phase 7: /transcode is an emptyDir with a 30Gi limit (exceeding it evicts the pod). Delete
     # segments the client already fetched (kept 720 s for seeking back) and pause ffmpeg once it is

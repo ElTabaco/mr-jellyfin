@@ -220,11 +220,21 @@ Changes in Phase 7:
   Jellyfin users) is not permitted -> **not implemented, no reverse engineering.** Only path: written
   permission from Zattoo.
 
+## After acceptance (2026-11-11)
+
+- Test media added to `movies/`: "Big Buck Bunny (2008)" (Blender Foundation, CC BY 3.0, versions
+  2160p60 and 1080p30) and "Sol Levante (2020)" (Netflix Open Content, CC BY 4.0, HDR10; licence note
+  next to the file). BBB: direct stream ~190 Mbit/s to a LAN host; 4K60 H.264 -> 1080p VA-API 3.6x,
+  -> 720p 5.0x realtime.
+- HDR10 -> SDR tone mapping verified with Sol Levante and enabled
+  ([hardware-compatibility.md](hardware-compatibility.md#tone-mapping-hdr10---sdr)).
+- Owner request to download purchased commercial anime (Solo Leveling, Hunter x Hunter): not done,
+  only unlicensed download sources exist. Owner chose to skip.
+
 ## Open items
 
 - 3sat starts at 640x360 (master playlist): check over several days whether its variant URL hash is
   stable, then pin it like the ARD channels.
-- HDR tone mapping untested with real HDR content (failed with a generated file); off.
 - SRF/RTS/RSI live: needs an ISP IPTV offer (e.g. Init7 TV7) or a DVB-C network tuner; owner's ISP unknown.
 - CallMeBot recipient: default Christoph/Telegram (question unanswered); change = Secret
   `monitoring/callmebot-relay`.
