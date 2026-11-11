@@ -248,8 +248,13 @@ sidecar serves a reduced master (720p50 + default audio, absolute URLs, refreshe
 `/pin/3sat-de-sd.m3u8`; the variant path was identical on 4 requests from 2 hosts. ffmpeg test of the
 reduced master: H.264 1280x720 + AAC stereo.
 
+Read-only root filesystem for the Jellyfin container (2026-11-11): the container's writable overlay
+layer on mr2 after 14 h of use (transcodes incl. HDR tone mapping, live TV, scans, backups) contained
+only runtime mount points and an empty `/var/tmp`. `/var/tmp` is now mounted from the tmp emptyDir and
+`securityContext.readOnlyRootFilesystem` defaults to `true`. Pre-test: Jellyfin 12.4 started read-only
+from the latest backup in an isolated namespace (startup 3.6 s, configuration identical).
+
 ## Open items
 
-- `readOnlyRootFilesystem` for the Jellyfin container (not tested; stays false).
 - Progress reports (`/Sessions/Playing/Progress`) from the synthetic load-test clients returned 400
   (test tool only; real clients unaffected).

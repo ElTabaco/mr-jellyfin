@@ -84,7 +84,7 @@ scripts/
 | `mr-do-jellyfin-pvc-media` | `/media` | NFS PV, Retain | `riemerkNASS.local:/volumeUSB1/usbshare/media` | 458Gi | ROX, read-only |
 | `mr-do-jellyfin-pvc-backup` | `/backup` (backup job only) | NFS PV, Retain | `mr0.local:/srv/nfs4/homes/mr/jellyfin/backup` | 50Gi | RWX |
 | `transcode` | `/transcode` | emptyDir | mr2 node disk | limit 30Gi | wiped on restart |
-| `tmp` | `/tmp` | emptyDir | mr2 node disk | limit 2Gi | wiped on restart |
+| `tmp` | `/tmp`, `/var/tmp` (subPath `var-tmp`) | emptyDir | mr2 node disk | limit 2Gi (shared) | wiped on restart |
 | `livetv` | `/livetv` (`channels.m3u`) | ConfigMap `mr-do-jellyfin-livetv` | rendered from `liveTv.channels` | - | read-only |
 | guide `public` | `/epg/public` (epg pod: `guide.xml`, `guide-clean.xml`) | emptyDir | mr2 node disk | limit 256Mi | rebuilt at pod start (grab at startup) |
 | guide `channels` | `/epg/public/channels.xml` (subPath) | ConfigMap `mr-do-jellyfin-epg` | rendered from `liveTv.channels[].epgSite*` | - | read-only |
@@ -115,7 +115,7 @@ every PV has `persistentVolumeReclaimPolicy: Retain`.
 | Supplemental group with GPU | `992` = `render` on mr2 (owner group of `/dev/dri/renderD128`) |
 | Owner of `/var/lib/mr-jellyfin/{config,cache}` on mr2 | `1000:1000`, mode `0750` (Phase 2) |
 | NAS export | read access for the mapped NFS user is enough; mounted read-only |
-| Container security | non-root, `allowPrivilegeEscalation: false`, all capabilities dropped, `seccomp: RuntimeDefault`, no privileged, no hostPath |
+| Container security | non-root, `allowPrivilegeEscalation: false`, all capabilities dropped, `seccomp: RuntimeDefault`, read-only root filesystem (all containers), no privileged, no hostPath |
 | GPU access | extended resource `devic.es/dri-render: 1` from the device plugin (no privileged mode) |
 
 ## Images (all pinned by tag and digest)
@@ -169,7 +169,7 @@ Defaults in `kubernetes/chart/values.yaml`; mr home lab overrides in `values-pro
 | `tolerations` | `[]` | - | pod tolerations |
 | `securityContext.runAsUser` / `runAsGroup` / `fsGroup` | `1000` / `1000` / `1000` | - | identity |
 | `securityContext.supplementalGroups` | `[]` | - | extra groups (render GID added when GPU on) |
-| `securityContext.readOnlyRootFilesystem` | `false` | - | Jellyfin container root fs read-only (to verify in Phase 3) |
+| `securityContext.readOnlyRootFilesystem` | `true` | - | Jellyfin container root fs read-only (verified 2026-11-11; writes only to volumes and `/var/tmp`) |
 | `gpu.enabled` | `false` | `true` | request the render node |
 | `gpu.resourceName` | `devic.es/dri-render` | - | device plugin resource |
 | `gpu.renderGroupId` | `992` | `992` | render GID on the GPU node |

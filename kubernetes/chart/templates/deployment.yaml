@@ -140,6 +140,10 @@ spec:
               mountPath: /transcode
             - name: tmp
               mountPath: /tmp
+            # Only path written outside the volumes (container writable layer after 14 h of use).
+            - name: tmp
+              mountPath: /var/tmp
+              subPath: var-tmp
             {{- if .Values.liveTv.enabled }}
             - name: livetv
               mountPath: {{ .Values.liveTv.mountPath }}
