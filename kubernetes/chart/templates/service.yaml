@@ -32,3 +32,10 @@ spec:
       port: {{ .Values.service.port }}
       targetPort: http
       protocol: TCP
+    {{- range .Values.service.extraPorts }}
+    # Additional Service port -> same container port (Jellyfin itself keeps listening on 8096).
+    - name: http-{{ . }}
+      port: {{ . }}
+      targetPort: http
+      protocol: TCP
+    {{- end }}

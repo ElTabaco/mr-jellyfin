@@ -17,6 +17,9 @@ service:
   # Approved 2026-11-10 (free in MetalLB pool first-pool 192.168.0.2-29).
   loadBalancerIP: 192.168.0.5
   addressPool: first-pool
+  # Approved 2026-11-11: http://<LB IP> without ":8096"; 8096 stays for existing clients.
+  extraPorts:
+    - 80
   loadBalancerSourceRanges:
     - 192.168.0.0/24
 
