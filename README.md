@@ -8,7 +8,7 @@ k3s cluster, deployed by Argo CD from this repository. LAN only.
 | Argo CD application | `mr-do-jellyfin` (`kubernetes/application.yaml`) |
 | Namespace | `mr-do-jellyfin` (created by Argo CD, Pod Security `restricted`) |
 | Jellyfin | 12.4, image `docker.io/jellyfin/jellyfin:12.4.20261026-211555@sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771` |
-| URL | `http://192.168.x.x:8096` (MetalLB, LAN `192.168.x.x/24` only, plain HTTP) |
+| URL | `http://192.168.x.x` (port 80) or `http://192.168.x.x:8096` (MetalLB, LAN `192.168.x.x/24` only, plain HTTP) |
 | Node | `mr2` (AMD Ryzen 7 7840HS, Radeon 780M iGPU, VCN 4.0) |
 | Media | Synology DS220+ `nasName.local:/volumeUSBX/usbshare/media` (USB SSD, 458 GB) over NFSv4.1, read-only |
 | State | node-local SSD on mr2: `/var/lib/mr-jellyfin/{config,cache}` |
@@ -66,6 +66,7 @@ scripts/
 | Port | Protocol | Where | Purpose |
 |---|---|---|---|
 | 8096 | TCP/HTTP | Service `mr-do-jellyfin` (LoadBalancer `192.168.0.5`, pool `first-pool`) -> container `http` | Web UI, API, clients, `/health`, `/metrics` |
+| 80 | TCP/HTTP | Service `mr-do-jellyfin` port `http-80` (`service.extraPorts`) -> container `http` (8096) | same as 8096, URL without port |
 | 9594 | TCP/HTTP | exporter sidecar (only if `exporter.enabled`) | jellyfin_exporter metrics for Prometheus |
 | 8080 | TCP/HTTP | generic-device-plugin pod (kube-system, mr2) | plugin health/metrics (not exposed) |
 | 3000 | TCP/HTTP | Service `mr-do-jellyfin-epg` (ClusterIP, only if `liveTv.epg.enabled`) | programme guide `/guide-clean.xml` (Jellyfin reads it), raw `/guide.xml`, reduced live masters `/pin/<channel>.m3u8`; NetworkPolicy: only the Jellyfin pod |
@@ -73,7 +74,7 @@ scripts/
 - `externalTrafficPolicy: Local`: client IP preserved (Jellyfin LAN detection), IP announced from mr2.
 - `loadBalancerSourceRanges: 192.168.0.0/24` and a NetworkPolicy (LAN CIDR, `monitoring` namespace, backup job).
 - No Ingress, no HTTPS, no port forwarding (decision: LAN only, plain HTTP; [docs/decisions.md](docs/decisions.md)).
-- Not available behind a LoadBalancer: UDP 7359 client auto-discovery and DLNA (need host networking). Clients connect with `http://192.168.0.5:8096`.
+- Not available behind a LoadBalancer: UDP 7359 client auto-discovery and DLNA (need host networking). Clients connect with `http://192.168.0.5` or `http://192.168.0.5:8096`.
 
 ## Storage
 
@@ -185,6 +186,7 @@ Defaults in `kubernetes/chart/values.yaml`; mr home lab overrides in `values-pro
 | `liveTv.epg.nodeHeapMb` / `port` | `1536` / `3000` | - | Node.js heap (below the memory limit), service port; guide at `/guide.xml` |
 | `liveTv.epg.resources` | 20m/256Mi, limit 1 CPU/2Gi | - | grabber + file server |
 | `service.type` / `port` | `LoadBalancer` / `8096` | - | Service |
+| `service.extraPorts` | `[]` | `[80]` | additional Service ports -> container port 8096 (named `http-<port>`) |
 | `service.loadBalancerIP` | `""` | `192.168.0.5` | MetalLB IP (annotation `metallb.io/loadBalancerIPs`) |
 | `service.addressPool` | `""` | `first-pool` | MetalLB pool (annotation `metallb.io/address-pool`) |
 | `service.externalTrafficPolicy` | `Local` | - | keep client IP |

@@ -51,6 +51,9 @@ service:
   # -- LoadBalancer (MetalLB) is the client entry point; no Ingress (LAN only, plain HTTP).
   type: LoadBalancer
   port: 8096
+  # -- Additional Service ports forwarded to the same container port (e.g. [80] for URLs without
+  #    ":8096"). The container port and the NetworkPolicy stay 8096.
+  extraPorts: []
   # -- Fixed MetalLB IP (annotation metallb.io/loadBalancerIPs). Empty = auto-assign.
   loadBalancerIP: ""
   # -- MetalLB pool (annotation metallb.io/address-pool). Empty = any pool.
