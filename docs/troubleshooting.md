@@ -36,6 +36,18 @@ kubectl -n mr-do-jellyfin logs deploy/mr-do-jellyfin -c jellyfin --tail=200
   design: mr0 has no local endpoint (`externalTrafficPolicy: Local`), and node-originated traffic
   reaches the pod from the CNI bridge address (10.42.x.1), which the NetworkPolicy does not allow.
   On a node use `WITH_KUBECTL=1 SKIP_HTTP=1 scripts/healthcheck.sh` (checks `/health` inside the pod).
+- One device fails, others work: capture on mr2 while the device retries
+  (`tcpdump -i enp1s0 -e -nn "host <device IP> or arp"`). No `who-has 192.168.0.5` from the device =
+  the request never leaves the device, so the server is not involved.
+
+### Android Chrome: "This site can't be reached", ERR_TOO_MANY_RETRIES (2026-11-11)
+
+Pixel 8 on the home Wi-Fi: Chrome could not open any LAN address (Jellyfin, Grafana, the router),
+while the internet and the official Jellyfin app on the same phone worked. The capture showed the
+phone on the LAN (DHCP, ARP for the router) but no packet from Chrome to `192.168.0.5`.
+Fixed by **Settings > Apps > Chrome > Storage > Clear cache**. If it comes back, also check
+Settings > Apps > Chrome > Permissions ("Nearby devices" / "Local network") and Chrome > Site
+settings. The Jellyfin Android app is the better client on phones anyway (downloads, more direct play).
 
 ## Playback problems
 
